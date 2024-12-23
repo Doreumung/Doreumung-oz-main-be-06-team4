@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "doreumung-project"
+version = "0.1.0"
+description = ""
+authors = ["limsu1015 <tngur1015@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = {extras = ["standard"], version = "^0.115.6"}
+uvicorn = "^0.34.0"
+psycopg2 = "^2.9.10"
+requests = "^2.32.3"
+python-dotenv = "^1.0.1"
+pytest = "^8.3.4"
+black = "^24.10.0"
+isort = "^5.13.2"
+mypy = "^1.14.0"
+alembic = "^1.14.0"
+sqlalchemy = "^2.0.36"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

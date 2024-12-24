@@ -1,0 +1,63 @@
+# Byte-compiled Python files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Unit test / coverage results
+*.coverage
+*.cover
+*.py,cover
+.coverage.*
+.cache
+.nox
+nosetests.xml
+coverage.xml
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# Virtual environments
+venv/
+env/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+
+# Distribution / packaging
+*.egg
+dist/
+build/
+wheels/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Local configuration files
+*.DS_Store
+*.idea/
+*.vscode/
+*.swp
+*~
+
+# Docker-specific files
+docker-compose.override.yml
+docker-compose.override.yaml
+.dockerignore
+
+# Git repository files
+.git/
+.gitignore
+.gitattributes
+
+# Caches
+*.bak
+*.tmp
+*.temp
+__MACOSX/
+
+# Pytest cache
+.pytest_cache/
+.cache/

@@ -12,10 +12,12 @@ class ServerEnv(StrEnum):
 
 class Settings(BaseSettings):
     database_url: str
-    redis_host: str
-    redis_port: int
+    async_database_url: str
     kakao_rest_api_key: str
     kakao_redirect_url: str
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_url: str
 
 
 def get_settings(env: ServerEnv) -> Settings:
@@ -28,5 +30,5 @@ def get_settings(env: ServerEnv) -> Settings:
             return Settings(_env_file="config/.env.local")  # type: ignore
 
 
-ENV = os.getenv("ENV", ServerEnv.LOCAL)
+ENV = os.getenv("ENV", ServerEnv.DEV)
 settings = get_settings(env=ENV)  # type: ignore

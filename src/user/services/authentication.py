@@ -31,6 +31,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 UTC = timezone.utc
 
+
 class JWTPayload(TypedDict):
     user_id: int
     exp: int
@@ -47,7 +48,8 @@ def encode_access_token(user_id: int, expires_delta: timedelta = timedelta(days=
 
 def decode_access_token(access_token: str) -> JWTPayload:
     try:
-        return jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
+        return JWTPayload(user_id=payload["user_id"], exp=payload["exp"])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -57,6 +59,6 @@ def decode_access_token(access_token: str) -> JWTPayload:
 # 인증 처리
 def authenticate(
     auth_header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-):
+) -> int:
     payload: JWTPayload = decode_access_token(auth_header.credentials)
     return payload["user_id"]

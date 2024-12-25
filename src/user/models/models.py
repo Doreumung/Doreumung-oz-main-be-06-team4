@@ -2,13 +2,13 @@ import random
 import string
 import uuid
 from enum import StrEnum
-from sqlalchemy.orm import Mapped, mapped_column
 
 from pydantic import ValidationError
 from pydantic.v1 import EmailStr
-from sqlalchemy import Boolean, Column, Date, DateTime
+from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.config.orm import Base
 from src.user.services.authentication import hash_password, is_bcrypt_pattern
@@ -24,7 +24,7 @@ class SocialProvider(StrEnum):
     GOOGLE = "google"
 
 
-class User(Base):
+class User(Base):  # type: ignore
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
@@ -45,7 +45,7 @@ class User(Base):
         return is_bcrypt_pattern(password)
 
     @classmethod
-    def create(cls, email: str, password: str):
+    def create(cls, email: str, password: str) -> "User":
         if cls._is_bcrypt_pattern(password):
             raise ValueError("Password must be plain text")
 
@@ -53,7 +53,7 @@ class User(Base):
         return cls(email=email, password=hashed_password)
 
     @classmethod
-    def social_signup(cls, social_provider: SocialProvider, subject: str, email: str):
+    def social_signup(cls, social_provider: SocialProvider, subject: str, email: str) -> "User":
         unique_id = uuid.uuid4().hex[:6]
         username: str = f"{social_provider[:3]}#{subject[:8]}_{unique_id}"
         password: str = "".join(random.choices(string.ascii_letters, k=16))
@@ -65,7 +65,7 @@ class User(Base):
             social_login=social_provider,
         )
 
-    def update_password(self, password: str):
+    def update_password(self, password: str) -> None:
         if self._is_bcrypt_pattern(password):
             raise ValueError("Password must be plain text")
         if len(password) < 8:
@@ -73,7 +73,7 @@ class User(Base):
         hashed_password = hash_password(plain_text=password)
         self.password = hashed_password
 
-    def update_email(self, email: str):
+    def update_email(self, email: str) -> None:
         # email type validation
         try:
             email = EmailStr(email)

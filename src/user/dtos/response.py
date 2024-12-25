@@ -12,8 +12,15 @@ class UserMeResponse(BaseModel):
 
 
 # 다른 사람의 정보 조회
+
+
 class UserResponse(BaseModel):
+    email: str
     username: str
+    is_superuser: bool
+
+    class Config:
+        from_attributes = True  # ORM 객체에서 모델 생성 가능
 
 
 class JWTResponse(BaseModel):

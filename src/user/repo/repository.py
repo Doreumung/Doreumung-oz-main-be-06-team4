@@ -1,27 +1,34 @@
 from fastapi import Depends
-from sqlalchemy.orm import Session
+from pydantic import EmailStr
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from src.config.database.connection_async import get_async_session
 from src.user.models.models import SocialProvider, User
 
 
 class UserRepository:
-    def __init__(self, session: Session = Depends(get_async_session)):
+    def __init__(self, session: AsyncSession = Depends(get_async_session)):
         self.session = session
 
-    def save(self, user: User) -> None:
+    async def save(self, user: User) -> None:
         self.session.add(user)
-        self.session.commit()
+        await self.session.commit()  # 비동기 commit
 
-    def get_user_by_id(self, user_id: int) -> User | None:
-        return self.session.query(User).filter_by(id=user_id).first()
+    async def get_user_by_id(self, user_id: int) -> User | None:
+        result = await self.session.execute(select(User).filter_by(id=user_id))
+        return result.scalar_one_or_none()
 
-    def get_user_by_email(self, email: str) -> User | None:
-        return self.session.query(User).filter_by(email=email).first()
+    async def get_user_by_email(self, email: EmailStr) -> User | None:
+        result = await self.session.execute(select(User).filter_by(email=email))
+        return result.scalar_one_or_none()
 
-    def get_user_by_social_email(self, social_provider: SocialProvider, email: str) -> User | None:
-        return self.session.query(User).filter(User.social_provider == social_provider, User.email == email).first()
+    async def get_user_by_social_email(self, social_provider: SocialProvider, email: EmailStr) -> User | None:
+        result = await self.session.execute(
+            select(User).filter(User.social_provider == social_provider, User.email == email)
+        )
+        return result.scalar_one_or_none()
 
-    def delete(self, user: User) -> None:
-        self.session.delete(user)
-        self.session.commit()
+    async def delete(self, user: User) -> None:
+        await self.session.delete(user)
+        await self.session.commit()

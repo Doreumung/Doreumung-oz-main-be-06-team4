@@ -10,11 +10,11 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
 
 @router.post("/superuser", response_model=UserResponse)
-def create_superuser(
+async def create_superuser(
     body: CreateUserRequestBody,
     user_repo: UserRepository = Depends(),
 ) -> UserResponse:
-    if user_repo.get_user_by_email(email=body.email):
+    if await user_repo.get_user_by_email(email=body.email):  # 비동기 호출
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
 
     hashed_password = hash_password(plain_text=body.password)
@@ -24,5 +24,5 @@ def create_superuser(
         username=body.username,
         is_superuser=True,
     )
-    user_repo.save(user=superuser)
+    await user_repo.save(user=superuser)  # 비동기 호출
     return UserResponse.model_validate(superuser)

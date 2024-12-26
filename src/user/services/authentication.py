@@ -1,7 +1,8 @@
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import bcrypt
 import jwt
@@ -56,9 +57,43 @@ def decode_access_token(access_token: str) -> JWTPayload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
+def encode_refresh_token(user_id: int, expires_delta: timedelta = timedelta(days=7)) -> str:
+    expire = datetime.now(UTC) + expires_delta
+    payload = {
+        "user_id": user_id,
+        "exp": int(expire.timestamp()),
+    }
+    return jwt.encode(dict(payload), SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_refresh_token(token: str) -> JWTPayload:
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # Ensure the decoded token matches the JWTPayload structure
+        payload: JWTPayload = {
+            "user_id": int(decoded_token["user_id"]),
+            "exp": int(decoded_token["exp"]),
+        }
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
 # 인증 처리
 def authenticate(
     auth_header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
 ) -> int:
-    payload: JWTPayload = decode_access_token(auth_header.credentials)
+    payload: JWTPayload = decode_access_token(access_token=auth_header.credentials)
+
+    # token 만료 검사
+    EXPIRY_SECONDS = 60 * 60 * 24 * 7
+    if payload["exp"] + EXPIRY_SECONDS < time.time():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+
     return payload["user_id"]

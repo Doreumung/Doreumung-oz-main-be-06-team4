@@ -1,12 +1,33 @@
-from pydantic import BaseModel, ConfigDict
+from datetime import date, datetime
+from typing import Optional
 
+from pydantic import BaseModel, ConfigDict, EmailStr
+
+from src.user.models.models import Gender
 
 # 내 정보 조회
-class UserMeResponse(BaseModel):
+
+
+class UserInfoResponse(BaseModel):
     id: int
-    email: str
-    username: str | None
+    email: EmailStr
+    username: str
+    nickname: Optional[str] = None
+    phone_number: Optional[str] = None
+    gender: Optional[Gender] = None
+    birthday: Optional[date] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class UserMeResponse(BaseModel):
+    email: EmailStr
     password: str
+    username: str
+    nickname: str
+    phone_number: str
+    gender: Gender
+    birthday: date
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -15,7 +36,7 @@ class UserMeResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    email: str
+    email: EmailStr
     username: str
     is_superuser: bool
 
@@ -25,3 +46,4 @@ class UserResponse(BaseModel):
 
 class JWTResponse(BaseModel):
     access_token: str
+    refresh_token: str

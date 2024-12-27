@@ -227,8 +227,8 @@ async def refresh_access_token_handler(
 async def kakao_social_login_handler() -> RedirectResponse:
     return RedirectResponse(
         f"https://kauth.kakao.com/oauth/authorize?"
-        f"client_id={settings.kakao_rest_api_key}"
-        f"&redirect_uri={settings.kakao_redirect_url}"
+        f"client_id={settings.KAKAO_REST_API_KEY}"
+        f"&redirect_uri={settings.KAKAO_REDIRECT_URL}"
         f"&response_type=code"
         f"&scope=account_email",
     )
@@ -246,9 +246,9 @@ async def kakao_social_callback_handler(
     return await kakao_callback_handler(
         token_url="https://kauth.kakao.com/oauth/token",
         profile_url="https://kapi.kakao.com/v2/user/me",
-        client_id=settings.kakao_rest_api_key,
+        client_id=settings.KAKAO_REST_API_KEY,
         client_secret="",
-        redirect_uri=settings.kakao_redirect_url,
+        redirect_uri=settings.KAKAO_REDIRECT_URL,
         code=code,
         social_provider=SocialProvider.KAKAO,
         user_repo=user_repo,
@@ -261,12 +261,12 @@ async def kakao_social_callback_handler(
     status_code=status.HTTP_200_OK,
 )
 async def google_login_handler() -> RedirectResponse:
-    redirect_uri = settings.google_redirect_url  # 확인
+    redirect_uri = settings.GOOGLE_REDIRECT_URL  # 확인
     print(f"Redirect URI being sent: {redirect_uri}")
     return RedirectResponse(
         f"https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={settings.google_client_id}"
-        f"&redirect_uri={settings.google_redirect_url}"
+        f"client_id={settings.GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={settings.GOOGLE_REDIRECT_URL}"
         f"&response_type=code"
         f"&scope=openid email profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
     )
@@ -282,17 +282,17 @@ async def google_social_callback_handler(
 ) -> JWTResponse:
     # 디버깅용 로그 추가
     print("Google Login Debugging:")
-    print(f"Client ID: {settings.google_client_id}")
-    print(f"Client Secret: {settings.google_client_secret}")
-    print(f"Redirect URI: {settings.google_redirect_url}")
+    print(f"Client ID: {settings.GOOGLE_CLIENT_ID}")
+    print(f"Client Secret: {settings.GOOGLE_CLIENT_SECRET}")
+    print(f"Redirect URI: {settings.GOOGLE_REDIRECT_URL}")
     print(f"Code: {code}")
 
     return await google_callback_handler(
         token_url="https://oauth2.googleapis.com/token",
         profile_url="https://www.googleapis.com/oauth2/v2/userinfo",
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        redirect_uri=settings.google_redirect_url,
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        redirect_uri=settings.GOOGLE_REDIRECT_URL,
         code=code,
         social_provider=SocialProvider.GOOGLE,
         user_repo=user_repo,

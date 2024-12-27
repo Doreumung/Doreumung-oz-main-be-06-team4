@@ -1,6 +1,12 @@
 from fastapi import FastAPI
+from fastapi.security import HTTPBearer
+
+from src.user.router.router import router
 
 app = FastAPI()
+security = HTTPBearer()
+
+app.include_router(router)
 
 
 @app.get("/")

@@ -20,9 +20,6 @@ class Settings(BaseSettings):
     google_client_secret: str
     google_redirect_url: str
     SECRET_KEY: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
     DEBUG: bool
 
     class Config:

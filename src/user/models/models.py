@@ -1,7 +1,7 @@
 import random
 import string
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Optional
 
@@ -112,7 +112,7 @@ class User(Base):  # type: ignore
     def mark_as_deleted(self) -> None:
         """사용자를 소프트 삭제로 설정"""
         self.is_deleted = True
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = datetime.now(timezone(timedelta(hours=9)))
 
     def restore(self) -> None:
         """소프트 삭제된 사용자 복원"""
@@ -128,5 +128,5 @@ class User(Base):  # type: ignore
         if self.is_deleted and self.deleted_at:
             deleted_at_datetime = self.deleted_at
             if isinstance(deleted_at_datetime, datetime):
-                return datetime.now(timezone.utc) > deleted_at_datetime
+                return datetime.now(timezone(timedelta(hours=9))) > deleted_at_datetime
         return False

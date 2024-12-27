@@ -1,10 +1,8 @@
 import asyncio
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.sql.expression import literal
 
 from src.config import settings
 from src.user.dtos.request import (
@@ -43,7 +41,6 @@ async def send_welcome_email(email: str) -> None:
 )
 async def sign_up_handler(
     body: SignUpRequestBody,
-    background_tasks: BackgroundTasks,
     user_repo: UserRepository = Depends(),
 ) -> UserMeResponse:
     new_user = User.create(
@@ -56,7 +53,6 @@ async def sign_up_handler(
         birthday=body.birthday,
     )
     await user_repo.save(user=new_user)  # save를 비동기 처리
-    background_tasks.add_task(send_welcome_email, email=new_user.email)
     return UserMeResponse.model_validate(obj=new_user)
 
 
@@ -128,14 +124,13 @@ async def get_me_handler(
         )
 
     birthday = user.birthday if isinstance(user.birthday, date) else None
-    created_at: Optional[datetime] = user.created_at if isinstance(user.created_at, datetime) else None
-
-    updated_at: Optional[datetime] = user.updated_at if isinstance(user.updated_at, datetime) else None
+    created_at = user.created_at if isinstance(user.created_at, datetime) else None
+    updated_at = user.updated_at if isinstance(user.updated_at, datetime) else None
 
     if created_at:
-        created_at = created_at.astimezone(timezone.utc)
+        created_at = created_at.astimezone(timezone(timedelta(hours=9)))
     if updated_at:
-        updated_at = updated_at.astimezone(timezone.utc)
+        updated_at = updated_at.astimezone(timezone(timedelta(hours=9)))
 
     return UserInfoResponse(
         id=user.id,
@@ -195,7 +190,7 @@ async def delete_user_handler(
         )
 
     user.is_deleted = True
-    user.deleted_at = datetime.now(timezone.utc) + timedelta(days=3)
+    user.deleted_at = datetime.now(timezone(timedelta(hours=9))) + timedelta(days=3)
     await user_repo.save(user=user)
     return
 

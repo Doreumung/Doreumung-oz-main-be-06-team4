@@ -2,7 +2,7 @@ import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, TypedDict
+from typing import TypedDict
 
 import bcrypt
 import jwt
@@ -30,7 +30,7 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-UTC = timezone.utc
+KST = timezone(timedelta(hours=9))
 
 
 class JWTPayload(TypedDict):
@@ -39,7 +39,7 @@ class JWTPayload(TypedDict):
 
 
 def encode_access_token(user_id: int, expires_delta: timedelta = timedelta(days=7)) -> str:
-    expire = datetime.now(UTC) + expires_delta
+    expire = datetime.now(KST) + expires_delta
     payload: JWTPayload = {
         "user_id": user_id,
         "exp": int(expire.timestamp()),
@@ -58,7 +58,7 @@ def decode_access_token(access_token: str) -> JWTPayload:
 
 
 def encode_refresh_token(user_id: int, expires_delta: timedelta = timedelta(days=7)) -> str:
-    expire = datetime.now(UTC) + expires_delta
+    expire = datetime.now(KST) + expires_delta
     payload = {
         "user_id": user_id,
         "exp": int(expire.timestamp()),

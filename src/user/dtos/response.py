@@ -11,13 +11,13 @@ from src.user.models.models import Gender
 class UserInfoResponse(BaseModel):
     id: int
     email: EmailStr
-    username: str
-    nickname: Optional[str] = None
-    phone_number: Optional[str] = None
-    gender: Optional[Gender] = None
-    birthday: Optional[date] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    username: str | None = None
+    nickname: str | None = None
+    phone_number: str | None = None
+    gender: Gender | None = None
+    birthday: date | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class UserMeResponse(BaseModel):

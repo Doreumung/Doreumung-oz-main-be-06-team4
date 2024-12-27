@@ -6,9 +6,10 @@ from typing import TypedDict
 
 import bcrypt
 import jwt
-from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from src.config import settings
 
 
 # 비밀 번호 처리
@@ -26,9 +27,7 @@ def is_bcrypt_pattern(password: str) -> bool:
     return re.fullmatch(bcrypt_pattern, password) is not None
 
 
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 KST = timezone(timedelta(hours=9))
 

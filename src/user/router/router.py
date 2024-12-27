@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from src.config import settings
 from src.user.dtos.request import (
+    RefreshTokenRequest,
     SignUpRequestBody,
     UpdateUserRequest,
     UserLoginRequestBody,
@@ -197,16 +198,18 @@ async def delete_user_handler(
 
 @router.post(
     "/refresh",
+    response_model=JWTResponse,
+    status_code=status.HTTP_200_OK,
 )
 async def refresh_access_token_handler(
-    refresh_token: str,
+    body: RefreshTokenRequest,
 ) -> JWTResponse:
     try:
-        payload = decode_refresh_token(refresh_token)
+        payload = decode_refresh_token(body.refresh_token)
         print(f"Decoded refresh token: {payload}")
 
         new_access_token = encode_access_token(user_id=int(payload["user_id"]))
-        return JWTResponse(access_token=new_access_token, refresh_token=refresh_token)
+        return JWTResponse(access_token=new_access_token, refresh_token=body.refresh_token)
 
     except HTTPException as e:
         print(f"Refresh token decoding failed: {str(e)}")

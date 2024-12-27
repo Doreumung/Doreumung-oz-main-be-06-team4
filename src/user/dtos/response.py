@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -40,8 +39,7 @@ class UserResponse(BaseModel):
     username: str
     is_superuser: bool
 
-    class Config:
-        from_attributes = True  # ORM 객체에서 모델 생성 가능
+    model_config = ConfigDict(from_attributes=True)
 
 
 class JWTResponse(BaseModel):

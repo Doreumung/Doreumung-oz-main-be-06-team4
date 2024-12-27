@@ -33,7 +33,7 @@ def load_environment_variables(env: ServerEnv) -> None:
     env_file = None
     match env:
         case ServerEnv.DEV:
-            env_file = "config/.env.dev"
+            env_file = "src/config/.env.dev"
         case ServerEnv.PROD:
             env_file = "src/config/.env.prod"
         case _:

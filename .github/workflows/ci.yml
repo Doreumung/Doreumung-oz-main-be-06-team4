@@ -48,6 +48,19 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Create .env.dev file
+        run: |
+          mkdir -p src/config
+          echo "DATABASE_URL=postgresql://postgres:0000@localhost:5432/doreumung" > src/config/.env.dev
+          echo "SECRET_KEY=supersecretkey" >> src/config/.env.dev
+          echo "DEBUG=True" >> src/config/.env.dev
+          echo "KAKAO_REST_API_KEY=mock_kakao_api_key" >> src/config/.env.dev
+          echo "KAKAO_REDIRECT_URL=http://localhost/kakao/callback" >> src/config/.env.dev
+          echo "GOOGLE_CLIENT_ID=mock_google_client_id" >> src/config/.env.dev
+          echo "GOOGLE_CLIENT_SECRET=mock_google_client_secret" >> src/config/.env.dev
+          echo "GOOGLE_REDIRECT_URL=http://localhost/google/callback" >> src/config/.env.dev
+      
+
       - name: Set timezone to KST
         run: |
           sudo rm /etc/localtime

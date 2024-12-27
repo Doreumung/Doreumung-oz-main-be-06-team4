@@ -51,7 +51,7 @@ jobs:
       - name: Create .env.dev file
         run: |
           mkdir -p src/config
-          echo "ASYNC_DATABASE_URL=postgresql://postgres:0000@localhost:5432/doreumung" > src/config/.env.dev
+          echo "ASYNC_DATABASE_URL=postgresql+asyncpg://postgres:0000@localhost:5432/doreumung" > src/config/.env.dev
           echo "SECRET_KEY=supersecretkey" >> src/config/.env.dev
           echo "DEBUG=True" >> src/config/.env.dev
           echo "KAKAO_REST_API_KEY=mock_kakao_api_key" >> src/config/.env.dev

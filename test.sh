@@ -16,3 +16,7 @@ echo "OK"
 echo "Starting mypy"
 poetry run mypy .
 echo "OK"
+
+echo  "Starting pytest"
+poetry run pytest --disable-warnings
+echo "OK"

@@ -21,7 +21,7 @@ async def create_superuser(
     superuser = User(
         email=body.email,
         password=hashed_password,
-        username=body.username,
+        nickname=body.nickname,
         is_superuser=True,
     )
     await user_repo.save(user=superuser)  # 비동기 호출

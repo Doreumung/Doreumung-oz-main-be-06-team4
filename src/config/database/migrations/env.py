@@ -17,7 +17,6 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from src.travel.models.place import *
 
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
@@ -65,7 +64,7 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-# 온라인 또는 오프라인 모드 선택S
+# 온라인 또는 오프라인 모드 선택
 if context.is_offline_mode():
     run_migrations_offline()
 else:

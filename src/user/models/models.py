@@ -9,7 +9,7 @@ from pydantic import EmailStr, ValidationError
 from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.config.orm import Base
 
@@ -31,14 +31,18 @@ class User(Base):  # type: ignore
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     nickname: Mapped[str] = mapped_column(String(30), nullable=False)
     birthday: Mapped[Date] = mapped_column(Date, nullable=True)
-    gender: Mapped[Gender] = mapped_column(SqlEnum(Gender), nullable=True)
+    gender: Mapped[Optional[Gender]] = mapped_column(SqlEnum(Gender), nullable=True)
     oauth_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
-    social_provider: Mapped[SocialProvider | None] = mapped_column(SqlEnum(SocialProvider), nullable=True)
+    social_provider: Mapped[Optional[SocialProvider | None]] = mapped_column(SqlEnum(SocialProvider), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # 관계 추가 문자열로 처리하여 순환 참조 방지
+    likes = relationship("Like", back_populates="user")
+    comments = relationship("Comment", back_populates="user")
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:

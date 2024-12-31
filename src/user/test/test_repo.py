@@ -9,9 +9,9 @@ from src.user.models.models import SocialProvider, User
 from src.user.repo.repository import UserRepository
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql:///:memory:")
+    engine = create_engine("postgresql://user:password@localhost/test_db")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 
@@ -36,11 +36,9 @@ def sample_user() -> User:
         id=1,
         email="test@example.com",
         password="hashedpassword123",
-        username="testuser",
         nickname="Tester",
         birthday=None,
         gender=None,
-        phone_number="010-1234-5678",
         social_provider=None,
     )
 
@@ -59,7 +57,7 @@ async def test_get_user_by_id(mock_session: Mock, sample_user: User) -> None:
     mock_session.execute.return_value.scalar_one_or_none = AsyncMock(return_value=sample_user)
 
     repo = UserRepository(session=mock_session)
-    user = await repo.get_user_by_id(user_id=1)
+    user = await repo.get_user_by_id(user_id="1")
 
     mock_session.execute.assert_called_once()
     assert await mock_session.execute.return_value.scalar_one_or_none() == sample_user

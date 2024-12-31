@@ -5,6 +5,7 @@ import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.main import app
@@ -12,16 +13,24 @@ from src.user.models.models import User
 from src.user.repo.repository import UserRepository
 from src.user.services.authentication import encode_refresh_token
 
+Base = declarative_base()
 
-@pytest.fixture
+
+@pytest.fixture(scope="function")
 def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql:///:memory:")
+    engine = create_engine("postgresql://user:password@localhost/test_db")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    # 스키마 생성
+    Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
-
-    yield db
-
-    db.close()
+    try:
+        yield db
+    finally:
+        db.close()
+        # 스키마 정리
+        Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
@@ -39,9 +48,7 @@ def test_sign_up(mock_user_repo: AsyncMock) -> None:
     signup_data = {
         "email": "test@example.com",
         "password": "password123",
-        "username": "testuser",
         "nickname": "tester",
-        "phone_number": "010-1234-5678",
         "gender": "male",
         "birthday": "1990-01-01",
     }
@@ -61,12 +68,10 @@ def test_login(mock_user_repo: AsyncMock) -> None:
     plain_password = "password123"
     hashed_password = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     mock_user = User(
-        id=1,
+        id="1",
         email="test@example.com",
         password=hashed_password,
-        username="testuser",
         nickname="tester",
-        phone_number="010-1234-5678",
         gender="male",
         birthday="1990-01-01",
     )
@@ -86,7 +91,7 @@ def test_login(mock_user_repo: AsyncMock) -> None:
 
 def test_refresh_token(mock_user_repo: AsyncMock) -> None:
     app.dependency_overrides[UserRepository] = lambda: mock_user_repo
-    refresh_token = encode_refresh_token(user_id=1)
+    refresh_token = encode_refresh_token(user_id="1")
 
     with TestClient(app) as client:
         response = client.post(

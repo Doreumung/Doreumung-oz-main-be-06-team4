@@ -13,9 +13,9 @@ from src.user.services.authentication import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql:///:memory:")  # SQLite 메모리 데이터베이스
+    engine = create_engine("postgresql://user:password@localhost/test_db")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 
@@ -46,20 +46,20 @@ def test_check_password(sample_password: str, hashed_password: str) -> None:
 
 
 def test_encode_access_token() -> None:
-    user_id = 123
+    user_id = "123"
     token = encode_access_token(user_id=user_id)
     assert isinstance(token, str)
 
 
 def test_decode_access_token() -> None:
-    user_id = 123
+    user_id = "123"
     token = encode_access_token(user_id=user_id)
     decoded = decode_access_token(token)
     assert decoded["user_id"] == user_id
 
 
 def test_access_token_expiry() -> None:
-    user_id = 123
+    user_id = "123"
     token = encode_access_token(user_id=user_id, expires_delta=timedelta(seconds=1))
 
     import time

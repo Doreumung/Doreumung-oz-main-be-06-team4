@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 
 from src.config import settings
+from src.config.database.connection_async import get_async_session
 from src.user.dtos.request import (
     RefreshTokenRequest,
     SignUpRequestBody,
@@ -47,9 +48,7 @@ async def sign_up_handler(
     new_user = User.create(
         email=body.email,
         password=body.password,
-        username=body.username,
         nickname=body.nickname,
-        phone_number=body.phone_number,
         gender=body.gender,
         birthday=body.birthday,
     )
@@ -114,7 +113,7 @@ async def logout_handler(
 # 내 정보 조회
 @router.get("/user/me", response_model=UserInfoResponse)
 async def get_me_handler(
-    user_id: int = Depends(authenticate),
+    user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> UserInfoResponse:
     user = await user_repo.get_user_by_id(user_id=user_id)
@@ -136,9 +135,7 @@ async def get_me_handler(
     return UserInfoResponse(
         id=user.id,
         email=user.email,
-        username=user.username,
         nickname=user.nickname,
-        phone_number=user.phone_number,
         gender=user.gender,
         birthday=birthday,
         created_at=created_at,
@@ -148,7 +145,7 @@ async def get_me_handler(
 
 @router.patch("/user/me", response_model=UserMeResponse, status_code=status.HTTP_200_OK)
 async def update_user_handler(
-    user_id: int = Depends(authenticate),
+    user_id: str = Depends(authenticate),
     update_data: UpdateUserRequest = Body(...),
     user_repo: UserRepository = Depends(),
 ) -> UserMeResponse:
@@ -174,7 +171,7 @@ async def update_user_handler(
 
 @router.delete("/user/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_handler(
-    user_id: int = Depends(authenticate),
+    user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> None:
     user = await user_repo.get_user_by_id(user_id=user_id)
@@ -208,7 +205,7 @@ async def refresh_access_token_handler(
         payload = decode_refresh_token(body.refresh_token)
         print(f"Decoded refresh token: {payload}")
 
-        new_access_token = encode_access_token(user_id=int(payload["user_id"]))
+        new_access_token = encode_access_token(user_id=str(payload["user_id"]))
         return JWTResponse(access_token=new_access_token, refresh_token=body.refresh_token)
 
     except HTTPException as e:

@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import EmailStr, ValidationError
 from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy import Integer, String, func
+from sqlalchemy import String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.config.orm import Base
@@ -26,14 +26,12 @@ class SocialProvider(StrEnum):
 
 class User(Base):  # type: ignore
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))  # 난수 uuid
     email: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
-    username: Mapped[str] = mapped_column(String(30), nullable=False)
-    nickname: Mapped[str] = mapped_column(String(30), nullable=True)
+    nickname: Mapped[str] = mapped_column(String(30), nullable=False)
     birthday: Mapped[Date] = mapped_column(Date, nullable=True)
     gender: Mapped[Gender] = mapped_column(SqlEnum(Gender), nullable=True)
-    phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
     oauth_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     social_provider: Mapped[SocialProvider | None] = mapped_column(SqlEnum(SocialProvider), nullable=True)
@@ -53,11 +51,9 @@ class User(Base):  # type: ignore
         cls,
         email: EmailStr,
         password: str,
-        username: str,
         nickname: str,
         birthday: date,
         gender: Gender,
-        phone_number: str,
     ) -> "User":
         from src.user.services.authentication import hash_password
 
@@ -68,15 +64,13 @@ class User(Base):  # type: ignore
         return cls(
             email=email,
             password=hashed_password,
-            username=username,
             nickname=nickname,
             birthday=birthday,
             gender=gender,
-            phone_number=phone_number,
         )
 
     @classmethod
-    def social_signup(cls, social_provider: SocialProvider, subject: str, email: EmailStr, username: str) -> "User":
+    def social_signup(cls, social_provider: SocialProvider, subject: str, email: EmailStr, nickname: str) -> "User":
         from src.user.services.authentication import hash_password
 
         unique_id = uuid.uuid4().hex[:6]
@@ -86,8 +80,8 @@ class User(Base):  # type: ignore
         return cls(
             oauth_id=oauth_id,
             email=email,
+            nickname=nickname,
             password=hashed_password,
-            username=username,
             social_provider=social_provider,
         )
 

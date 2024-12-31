@@ -15,7 +15,7 @@ class UserRepository:
         self.session.add(user)
         await self.session.commit()  # 비동기 commit
 
-    async def get_user_by_id(self, user_id: int) -> User | None:
+    async def get_user_by_id(self, user_id: str) -> User | None:
         result = await self.session.execute(select(User).filter_by(id=user_id))
         return result.scalar_one_or_none()
 

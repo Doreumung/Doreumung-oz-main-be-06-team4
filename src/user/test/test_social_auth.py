@@ -16,9 +16,9 @@ from src.user.services.social_auth import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql:///:memory:")
+    engine = create_engine("postgresql://user:password@localhost/test_db")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 

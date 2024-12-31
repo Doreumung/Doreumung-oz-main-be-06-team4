@@ -62,7 +62,7 @@ async def kakao_callback_handler(
         user_profile = profile_response.json()
         user_id = str(user_profile.get("id"))
         email = user_profile.get("kakao_account", {}).get("email")
-        username = user_profile.get("properties", {}).get("nickname")
+        nickname = user_profile.get("properties", {}).get("nickname")
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,7 +85,7 @@ async def kakao_callback_handler(
             social_provider=social_provider,
             subject=user_id,
             email=email,
-            username=username,
+            nickname=nickname,
         )
         await user_repo.save(user=user)
         return JWTResponse(
@@ -154,17 +154,17 @@ async def google_callback_handler(
         # 사용자 정보 확인 및 저장
         user_profile = profile_response.json()
         email = user_profile.get("email")
-        username = user_profile.get("name")
+        nickname = user_profile.get("name")
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email not provided by Google.",
             )
 
-        if not username:
-            username = user_profile.get("given_name", "") + " " + user_profile.get("family_name", "")
-            if not username.strip():
-                username = f"user_{user_profile.get('id')}"  # ID 기반 기본값
+        if not nickname:
+            nickname = user_profile.get("given_name", "") + " " + user_profile.get("family_name", "")
+            if not nickname.strip():
+                nickname = f"user_{user_profile.get('id')}"  # ID 기반 기본값
 
         # 기존 사용자 확인
         user = await user_repo.get_user_by_social_email(
@@ -181,7 +181,7 @@ async def google_callback_handler(
             social_provider=social_provider,
             subject=user_profile["id"],
             email=email,
-            username=username,
+            nickname=nickname,
         )
         await user_repo.save(user=user)
         return JWTResponse(

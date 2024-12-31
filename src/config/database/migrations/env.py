@@ -9,6 +9,10 @@ from sqlmodel import SQLModel
 
 from src.config import settings
 from src.config.orm import Base
+from src.travel.models.place import Place
+from src.travel.models.travel_route import TravelRoute
+from src.travel.models.travel_route_place import TravelRoutePlace
+
 
 # Alembic 설정
 config = context.config

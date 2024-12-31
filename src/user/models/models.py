@@ -40,6 +40,7 @@ class User(Base):  # type: ignore
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
+
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:
         from src.user.services.authentication import is_bcrypt_pattern

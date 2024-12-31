@@ -21,7 +21,7 @@ from src.user.models.models import *  # nopa
 target_metadata = Base.metadata
 
 # 비동기 URL을 동기 URL로 변환
-sync_url = settings.async_database_url.replace("asyncpg", "psycopg2")
+sync_url = settings.ASYNC_DATABASE_URL.replace("asyncpg", "psycopg2")
 
 
 def run_migrations_offline() -> None:

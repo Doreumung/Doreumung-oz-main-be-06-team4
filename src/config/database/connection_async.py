@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.config import settings
 
 # 비동기 엔진 생성
-async_engine = create_async_engine(settings.async_database_url)
+async_engine = create_async_engine(settings.ASYNC_DATABASE_URL)
 
 # 비동기 세션 팩토리
 AsyncSessionFactory = async_sessionmaker(bind=async_engine, autocommit=False, autoflush=False, expire_on_commit=False)

@@ -1,4 +1,3 @@
-import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -6,9 +5,10 @@ from typing import TypedDict
 
 import bcrypt
 import jwt
-from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from src.config import settings
 
 
 # 비밀 번호 처리
@@ -26,19 +26,17 @@ def is_bcrypt_pattern(password: str) -> bool:
     return re.fullmatch(bcrypt_pattern, password) is not None
 
 
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 KST = timezone(timedelta(hours=9))
 
 
 class JWTPayload(TypedDict):
-    user_id: int
+    user_id: str
     exp: int
 
 
-def encode_access_token(user_id: int, expires_delta: timedelta = timedelta(days=7)) -> str:
+def encode_access_token(user_id: str, expires_delta: timedelta = timedelta(days=7)) -> str:
     expire = datetime.now(KST) + expires_delta
     payload: JWTPayload = {
         "user_id": user_id,
@@ -57,7 +55,7 @@ def decode_access_token(access_token: str) -> JWTPayload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-def encode_refresh_token(user_id: int, expires_delta: timedelta = timedelta(days=7)) -> str:
+def encode_refresh_token(user_id: str, expires_delta: timedelta = timedelta(days=7)) -> str:
     expire = datetime.now(KST) + expires_delta
     payload = {
         "user_id": user_id,
@@ -72,7 +70,7 @@ def decode_refresh_token(token: str) -> JWTPayload:
 
         # Ensure the decoded token matches the JWTPayload structure
         payload: JWTPayload = {
-            "user_id": int(decoded_token["user_id"]),
+            "user_id": str(decoded_token["user_id"]),
             "exp": int(decoded_token["exp"]),
         }
         return payload
@@ -85,7 +83,7 @@ def decode_refresh_token(token: str) -> JWTPayload:
 # 인증 처리
 def authenticate(
     auth_header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-) -> int:
+) -> str:
     payload: JWTPayload = decode_access_token(access_token=auth_header.credentials)
 
     # token 만료 검사

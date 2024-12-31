@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -9,11 +8,9 @@ from src.user.models.models import Gender
 
 
 class UserInfoResponse(BaseModel):
-    id: int
+    id: str
     email: EmailStr
-    username: str | None = None
     nickname: str | None = None
-    phone_number: str | None = None
     gender: Gender | None = None
     birthday: date | None = None
     created_at: datetime | None = None
@@ -23,9 +20,7 @@ class UserInfoResponse(BaseModel):
 class UserMeResponse(BaseModel):
     email: EmailStr
     password: str
-    username: str
     nickname: str
-    phone_number: str
     gender: Gender
     birthday: date
 
@@ -37,11 +32,9 @@ class UserMeResponse(BaseModel):
 
 class UserResponse(BaseModel):
     email: EmailStr
-    username: str
     is_superuser: bool
 
-    class Config:
-        from_attributes = True  # ORM 객체에서 모델 생성 가능
+    model_config = ConfigDict(from_attributes=True)
 
 
 class JWTResponse(BaseModel):

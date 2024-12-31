@@ -8,9 +8,20 @@ jobs:
     env:
       DB_HOST: localhost
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: "0000"
-      DB_DATABASE: doreumung
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_DATABASE: ${{ secrets.DB_DATABASE }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DEBUG: ${{ secrets.DEBUG }}
+      KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+      KAKAO_REDIRECT_URL: ${{ secrets.KAKAO_REDIRECT_URL }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REDIRECT_URL: ${{ secrets.GOOGLE_REDIRECT_URL }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
 
     services:
       postgres:
@@ -33,9 +44,22 @@ jobs:
 
       - name: Setup python environment
         id: setup-python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.12
+
+      - name: Create .env.dev file
+        run: |
+          mkdir -p src/config
+          echo "ASYNC_DATABASE_URL=postgresql+asyncpg://postgres:0000@localhost:5432/doreumung" > src/config/.env.dev
+          echo "SECRET_KEY=supersecretkey" >> src/config/.env.dev
+          echo "DEBUG=True" >> src/config/.env.dev
+          echo "KAKAO_REST_API_KEY=mock_kakao_api_key" >> src/config/.env.dev
+          echo "KAKAO_REDIRECT_URL=http://localhost/kakao/callback" >> src/config/.env.dev
+          echo "GOOGLE_CLIENT_ID=mock_google_client_id" >> src/config/.env.dev
+          echo "GOOGLE_CLIENT_SECRET=mock_google_client_secret" >> src/config/.env.dev
+          echo "GOOGLE_REDIRECT_URL=http://localhost/google/callback" >> src/config/.env.dev
+      
 
       - name: Set timezone to KST
         run: |
@@ -45,7 +69,9 @@ jobs:
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
-          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry --version
 
       - name: Install dependencies
         run: |

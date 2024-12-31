@@ -7,7 +7,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.database.connection_async import close_db_connection, get_async_session
+from src.config.database.connection_async import close_db_connection, get_async_session
 from src.config import settings
 
 

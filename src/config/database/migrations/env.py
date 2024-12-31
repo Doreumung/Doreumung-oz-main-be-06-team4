@@ -25,8 +25,8 @@ from src.user.models.models import *  # nopa
 
 def get_url() -> str:
     if os.getenv("TEST_ENV") == "true":
-        return settings.test_async_database_url.replace("asyncpg", "psycopg2")
-    return settings.async_database_url.replace("asyncpg", "psycopg2")
+        return settings.TEST_ASYNC_DATABASE_URL.replace("asyncpg", "psycopg2")
+    return settings.ASYNC_DATABASE_URL.replace("asyncpg", "psycopg2")
 
 
 # 두 sqlalchemy방식과 SQLModel방식 metadata 병합

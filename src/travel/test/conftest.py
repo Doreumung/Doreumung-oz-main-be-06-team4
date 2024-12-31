@@ -13,7 +13,7 @@ from src.config.database.connection_async import close_db_connection, get_async_
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_test_db() -> Generator[None, None, None]:
-    engine = create_engine(settings.test_async_database_url.replace("asyncpg", "psycopg2"))
+    engine = create_engine(settings.TEST_ASYNC_DATABASE_URL.replace("asyncpg", "psycopg2"))
     # 테스트 DB 마이그레이션
     alembic_cfg = Config("alembic.ini")
     alembic.command.upgrade(alembic_cfg, "head")

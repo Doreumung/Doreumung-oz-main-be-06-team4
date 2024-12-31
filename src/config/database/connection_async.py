@@ -8,8 +8,8 @@ from src.config import settings
 
 def get_url() -> str:
     if os.getenv("TEST_ENV") == "true":
-        return settings.test_async_database_url
-    return settings.async_database_url
+        return settings.TEST_ASYNC_DATABASE_URL
+    return settings.ASYNC_DATABASE_URL
 
 
 # 비동기 엔진 생성

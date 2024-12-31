@@ -49,3 +49,10 @@ known_third_party = ["fastapi", "pydantic", "sqlalchemy", "uvicorn"]
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+env = [
+    "TEST_ENV=true"
+]
+#asyncio_default_fixture_loop_scope="function"
+#asyncio_mode = "auto"

@@ -12,6 +12,7 @@ jobs:
       DB_PASSWORD: "0000"
       DB_DATABASE: doreumung
       ON_CI: true
+      TEST_ENV: true
 
     services:
       postgres:

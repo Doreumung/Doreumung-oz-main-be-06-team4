@@ -28,6 +28,8 @@ webdriver-manager = "^4.0.2"
 psycopg2-binary = "^2.9.10"
 greenlet = "^3.1.1"
 httpx = "^0.28.1"
+sqlmodel = "^0.0.22"
+pytest-asyncio = "^0.25.0"
 
 
 [build-system]
@@ -45,3 +47,10 @@ known_third_party = ["fastapi", "pydantic", "sqlalchemy", "uvicorn"]
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+env = [
+    "TEST_ENV=true"
+]
+#asyncio_default_fixture_loop_scope="function"
+#asyncio_mode = "auto"

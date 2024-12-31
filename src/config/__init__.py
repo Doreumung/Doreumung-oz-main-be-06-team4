@@ -14,6 +14,7 @@ class ServerEnv(StrEnum):
 class Settings(BaseSettings):
     database_url: str
     async_database_url: str
+    test_async_database_url: str
     kakao_rest_api_key: str
     kakao_redirect_url: str
     google_client_id: str
@@ -33,7 +34,7 @@ def load_environment_variables(env: ServerEnv) -> None:
     env_file = None
     match env:
         case ServerEnv.DEV:
-            env_file = "config/.env.dev"
+            env_file = "src/config/.env.dev"
         case ServerEnv.PROD:
             env_file = "src/config/.env.prod"
         case _:

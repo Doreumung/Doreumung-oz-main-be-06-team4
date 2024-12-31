@@ -1,4 +1,4 @@
-name: Django CI
+name: Fastapi CI
 on:
   push:
 
@@ -11,6 +11,7 @@ jobs:
       DB_USER: postgres
       DB_PASSWORD: "0000"
       DB_DATABASE: doreumung
+      ON_CI: true
 
     services:
       postgres:

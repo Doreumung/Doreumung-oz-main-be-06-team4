@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.config import settings
 
 
-def get_url():
+def get_url() -> str:
     if os.getenv("TEST_ENV") == "true":
         return settings.test_async_database_url
     return settings.async_database_url
@@ -27,5 +27,5 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 # 애플리케이션 종료 시 엔진 정리
-async def close_db_connection():
+async def close_db_connection() -> None:
     await async_engine.dispose()

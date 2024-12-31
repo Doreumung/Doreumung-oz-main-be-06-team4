@@ -1,3 +1,5 @@
+from typing import Generator, AsyncGenerator
+
 import alembic
 import pytest
 import pytest_asyncio
@@ -10,7 +12,7 @@ from src.config import settings
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_test_db():
+def setup_test_db() -> Generator[None, None, None]:
     engine = create_engine(settings.test_async_database_url.replace("asyncpg", "psycopg2"))
     # 테스트 DB 마이그레이션
     alembic_cfg = Config("alembic.ini")
@@ -28,7 +30,7 @@ def setup_test_db():
 
 
 @pytest_asyncio.fixture(scope="function")
-async def async_session() -> AsyncSession:
+async def async_session() -> AsyncGenerator[AsyncSession, None]:
     async for session in get_async_session():
         try:
             yield session

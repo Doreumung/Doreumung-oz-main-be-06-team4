@@ -1,4 +1,4 @@
-from typing import Generator, AsyncGenerator
+from typing import AsyncGenerator, Generator
 
 import alembic
 import pytest

@@ -9,7 +9,7 @@ from pydantic import EmailStr, ValidationError
 from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.config.orm import Base
 
@@ -39,7 +39,10 @@ class User(Base):  # type: ignore
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), nullable=False)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-
+    travel_route = relationship(
+        "TravelRoute",
+        back_populates="user"
+    )
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:

@@ -9,9 +9,6 @@ from sqlmodel import SQLModel
 
 from src.config import settings
 from src.config.orm import Base
-from src.travel.models.place import Place
-from src.travel.models.travel_route import TravelRoute
-from src.travel.models.travel_route_place import TravelRoutePlace
 
 
 # Alembic 설정
@@ -25,7 +22,8 @@ if config.config_file_name is not None:
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
 
-
+from src.travel.models.travel_route_place import TravelRoute,TravelRoutePlace
+from src.travel.models.place import Place
 def get_url() -> str:
     if os.getenv("TEST_ENV") == "true":
         return settings.TEST_ASYNC_DATABASE_URL.replace("asyncpg", "psycopg2")

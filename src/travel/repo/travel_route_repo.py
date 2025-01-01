@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.database.connection_async import get_async_session
 from src.travel.models.travel_route import Tra
 
+from src.travel.models.travel_route_place import TravelRoute
+
 
 class TravelRoutePlaceRepository:
     def __init__(self, async_session: AsyncSession = Depends(get_async_session)):
         self.async_session = async_session
 
-    async def save(self, place: TravelR) -> Place:
+    async def save(self, place: TravelRoute) -> TravelRoute:
         self.async_session.add(place)
         await self.async_session.commit()
         return place

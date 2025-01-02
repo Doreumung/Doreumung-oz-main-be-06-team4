@@ -11,7 +11,7 @@ from src.config.orm import Base
 from src.reviews.models.models import Comment, Like, Review, ReviewImage
 from src.user.models.models import User
 
-DATABASE_URL = "postgresql+asyncpg://user:test_password@localhost/test_db"
+DATABASE_URL = "postgresql+asyncpg://user:password@localhost/test_db"
 
 # 비동기 엔진 생성
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

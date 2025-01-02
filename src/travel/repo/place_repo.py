@@ -17,7 +17,7 @@ class PlaceRepository:
         await self.async_session.commit()
         return place
 
-    async def save_bulk(self, place_list: list[Place] = None) -> list[Place]:
+    async def save_bulk(self, place_list: list[Place]) -> list[Place]:
         self.async_session.add_all(place_list)
         await self.async_session.commit()
         return place_list
@@ -38,9 +38,10 @@ class PlaceRepository:
 
     async def get_by_theme_and_region(self, theme: str, region: str) -> Place:
         place = await self.async_session.execute(select(Place).filter_by(theme=theme, region=region))
+        place = place.scalars().first()  # type: ignore
         if not place:
             raise HTTPException(status_code=404, detail="Item not found")
-        return place
+        return place  # type: ignore
 
     async def get_by_id(self, place_id: int) -> Place:
         place = await self.async_session.get(Place, place_id)

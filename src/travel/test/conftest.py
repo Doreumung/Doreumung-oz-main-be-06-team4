@@ -1,3 +1,5 @@
+import asyncio
+import time
 from typing import AsyncGenerator, Generator
 
 import alembic
@@ -9,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.config.database.connection_async import close_db_connection, get_async_session
+from src.config.orm import Base
+from src.travel.repo.place_repo import PlaceRepository
+from src.travel.repo.travel_route_place_repo import TravelRoutePlaceRepository
+from src.travel.repo.travel_route_repo import TravelRouteRepository
+from src.user.repo.repository import UserRepository
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -37,3 +44,23 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
     await close_db_connection()
+
+
+@pytest.fixture
+def travel_route_place_repository(async_session: AsyncSession) -> TravelRoutePlaceRepository:
+    return TravelRoutePlaceRepository(async_session)
+
+
+@pytest.fixture
+def travel_route_repository(async_session: AsyncSession) -> TravelRouteRepository:
+    return TravelRouteRepository(async_session)
+
+
+@pytest.fixture
+def place_repository(async_session: AsyncSession) -> PlaceRepository:
+    return PlaceRepository(async_session)
+
+
+@pytest.fixture
+def user_repository(async_session: AsyncSession) -> UserRepository:
+    return UserRepository(async_session)

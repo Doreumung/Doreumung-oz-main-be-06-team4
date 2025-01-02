@@ -25,7 +25,7 @@ class UserRepository:
 
     async def get_user_by_social_email(self, social_provider: SocialProvider, email: EmailStr) -> User | None:
         result = await self.session.execute(
-            select(User).filter(User.social_provider == social_provider, User.email == email)
+            select(User).filter(User.social_provider == social_provider, User.email == email)  # type: ignore
         )
         return result.scalar_one_or_none()
 

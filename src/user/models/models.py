@@ -9,9 +9,9 @@ from pydantic import EmailStr, ValidationError
 from sqlalchemy import Boolean, Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from src.config.orm import Base
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class Gender(StrEnum):
@@ -24,25 +24,24 @@ class SocialProvider(StrEnum):
     GOOGLE = "google"
 
 
-class User(Base):  # type: ignore
+class User(SQLModel, table=True):
     __tablename__ = "users"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))  # 난수 uuid
-    email: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
-    nickname: Mapped[str] = mapped_column(String(30), nullable=False)
-    birthday: Mapped[Date] = mapped_column(Date, nullable=True)
-    gender: Mapped[Gender] = mapped_column(SqlEnum(Gender), nullable=True)
-    oauth_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
-    social_provider: Mapped[SocialProvider | None] = mapped_column(SqlEnum(SocialProvider), nullable=True)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), nullable=False)
-    updated_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    travel_route = relationship(
-        "TravelRoute",
-        back_populates="user"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, sa_type=String(36))  # type: ignore
+    email: str = Field(sa_type=String(50), unique=True, nullable=False, index=True)  # type: ignore
+    password: str = Field(sa_type=String(255), nullable=False)  # type: ignore
+    nickname: str = Field(sa_type=String(30), nullable=False)  # type: ignore
+    birthday: Optional[date] = Field(sa_type=Date, nullable=True)
+    gender: Optional[Gender] = Field(sa_type=SqlEnum(Gender), nullable=True)  # type: ignore
+    oauth_id: Optional[str] = Field(sa_type=String(100), nullable=True)  # type: ignore
+    is_superuser: Optional[bool] = Field(default=False, nullable=True)
+    social_provider: Optional[SocialProvider] = Field(sa_type=SqlEnum(SocialProvider), nullable=True)  # type: ignore
+    is_deleted: Optional[bool] = Field(default=False, nullable=True)
+    deleted_at: Optional[datetime] = Field(nullable=True)
+    created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
+    updated_at: datetime = Field(
+        default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
     )
+    travel_routes: list["TravelRoute"] = Relationship(back_populates="user")  # type: ignore
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:
@@ -119,7 +118,7 @@ class User(Base):  # type: ignore
 
     def is_deletion_scheduled(self) -> bool:
         """삭제 예약이 되었는지 확인"""
-        return self.is_deleted and self.deleted_at is not None
+        return self.is_deleted and self.deleted_at is not None  # type: ignore
 
     def is_ready_for_hard_delete(self) -> bool:
         """삭제 예약 시간이 경과했는지 확인"""

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from src.travel.models.place import Place
+from src.travel.models.enums import RegionEnum, ThemeEnum
 
 
 class Schedule(BaseModel):
@@ -27,6 +27,6 @@ class ScheduleInfo(BaseModel):
 
 
 class TravelRouteConfig(BaseModel):
-    regions: list[Place.RegionEnum]
-    themes: list[Place.ThemeEnum]
+    regions: list[RegionEnum]
+    themes: list[ThemeEnum]
     schedule: Schedule

@@ -1,3 +1,3 @@
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeMeta, declarative_base
 
-Base = declarative_base()
+Base: DeclarativeMeta = declarative_base()

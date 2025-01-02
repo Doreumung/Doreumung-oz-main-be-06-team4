@@ -18,9 +18,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
+from src.reviews.models.models import *
+
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
-from src.reviews.models.models import *
 
 
 def get_url() -> str:

@@ -37,8 +37,8 @@ class User(Base):  # type: ignore
     social_provider: Mapped[Optional[SocialProvider | None]] = mapped_column(SqlEnum(SocialProvider), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), nullable=False)
-    updated_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
     # 관계 추가 문자열로 처리하여 순환 참조 방지
     likes = relationship("Like", back_populates="user")

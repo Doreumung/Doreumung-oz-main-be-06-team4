@@ -23,7 +23,6 @@ from src.travel.models.travel_route_place import TravelRoute, TravelRoutePlace
 
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
-from src.reviews.models.models import *
 
 
 def get_url() -> str:

@@ -20,10 +20,10 @@ if config.config_file_name is not None:
 
 from src.travel.models.place import Place
 from src.travel.models.travel_route_place import TravelRoute, TravelRoutePlace
+from src.reviews.models.models import *
 
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
-from src.reviews.models.models import *
 
 
 def get_url() -> str:

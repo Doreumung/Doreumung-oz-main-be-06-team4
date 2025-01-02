@@ -1,7 +1,7 @@
 """Add place
 
 Revision ID: eb7c15a34784
-Revises: 93aaf325759e
+Revises: 29690dffa788
 Create Date: 2024-12-30 17:47:04.939262
 
 """

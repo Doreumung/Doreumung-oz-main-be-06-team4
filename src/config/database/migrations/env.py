@@ -18,6 +18,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
+from src.travel.models.place import Place
+from src.travel.models.travel_route_place import TravelRoute, TravelRoutePlace
+
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
 
@@ -29,12 +32,8 @@ def get_url() -> str:
 
 
 # 두 sqlalchemy방식과 SQLModel방식 metadata 병합
-combined_metadata = MetaData()
-for metadata in [Base.metadata, SQLModel.metadata]:
-    for table in metadata.tables.values():
-        table.tometadata(combined_metadata)
+target_metadata = Base.metadata
 
-target_metadata = combined_metadata
 # 비동기 URL을 동기 URL로 변환
 sync_url = get_url()
 

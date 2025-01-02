@@ -1,3 +1,8 @@
-from sqlalchemy.orm import declarative_base
+from sqlmodel import SQLModel
 
-Base = declarative_base()
+from src.travel.models.travel_route_place import *
+from src.user.models.models import *
+
+
+class Base(SQLModel):
+    pass

@@ -1,8 +1,11 @@
 from typing import Generator
 from unittest.mock import AsyncMock, Mock
+from sqlalchemy.future import select
 
 import pytest
+from select import select
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.user.models.models import SocialProvider, User
@@ -15,25 +18,22 @@ def setup_database() -> Generator[Session, None, None]:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 
-    yield db
+    User.metadata.create_all(engine)
 
-    db.close()
+    try:
+        yield db
+    finally:
+        # Clean up database state after each test
+        db.query(User).delete()
+        db.commit()
+        db.close()
 
-
-@pytest.fixture
-def mock_session() -> Mock:
-    session = Mock()
-    session.execute = AsyncMock()
-    session.commit = AsyncMock()
-    session.add = AsyncMock()
-    session.delete = AsyncMock()
-    return session
 
 
 @pytest.fixture
 def sample_user() -> User:
     return User(
-        id=1,
+        id="1",
         email="test@example.com",
         password="hashedpassword123",
         nickname="Tester",
@@ -44,12 +44,15 @@ def sample_user() -> User:
 
 
 @pytest.mark.asyncio
-async def test_save_user(mock_session: Mock, sample_user: User) -> None:
-    repo = UserRepository(session=mock_session)
+async def test_save_user(setup_database: AsyncSession, sample_user: User) -> None:
+    repo = UserRepository(session=setup_database)
     await repo.save(sample_user)
 
-    mock_session.add.assert_called_once_with(sample_user)
-    mock_session.commit.assert_called_once()
+    # Verify that the user was saved
+    result = await setup_database.execute(select(User).filter_by(User.id == sample_user.id))
+    saved_user = result.scalar().first()
+    assert saved_user is not None
+    assert saved_user.email == "test@example.com"
 
 
 @pytest.mark.asyncio

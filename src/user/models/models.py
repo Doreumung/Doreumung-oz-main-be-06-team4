@@ -6,11 +6,10 @@ from enum import StrEnum
 from typing import Optional
 
 from pydantic import EmailStr, ValidationError
-from sqlalchemy import Boolean, Date, DateTime
+from sqlalchemy import  Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -42,6 +41,8 @@ class User(SQLModel, table=True):
         default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
     )
     travel_routes: list["TravelRoute"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})  # type: ignore
+    likes: list["Like"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "joined"})
+    comments: list["Comment"] = Relationship( back_populates="user", sa_relationship_kwargs={"lazy": "joined"})
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:

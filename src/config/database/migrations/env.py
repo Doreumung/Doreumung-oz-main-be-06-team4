@@ -1,11 +1,10 @@
-import asyncio
+
 import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import MetaData, create_engine
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import SQLModel
+from sqlalchemy import create_engine
+
 
 from src.config import settings
 from src.config.orm import Base

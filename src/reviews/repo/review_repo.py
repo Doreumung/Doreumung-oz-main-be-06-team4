@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.database.connection_async import get_async_session
-from src.reviews.models.models import Review
+from src.reviews.models.models import Comment, Review
 
 
 class ReviewRepo:
@@ -19,7 +19,7 @@ class ReviewRepo:
         return review
 
     async def get_review_by_id(self, review_id: int) -> Optional[Review]:
-        result = await self.session.execute(select(Review).filter_by(review_id=review_id))
+        result = await self.session.execute(select(Review).where(Review.id == review_id))  # type: ignore
         return result.scalar_one_or_none()
 
     async def get_all_reviews(self, skip: int = 0, limit: int = 10) -> List[Review]:
@@ -47,3 +47,24 @@ class ReviewRepo:
             review.like_count -= 1
             await self.session.commit()
         return review
+
+    async def create_comment(self, comment: Comment) -> Optional[Comment]:
+        self.session.add(comment)
+        await self.session.commit()
+        await self.session.refresh(comment)
+        return comment
+
+    async def get_comment_by_id(self, comment_id: int) -> Optional[Comment]:
+        result = await self.session.execute(select(Comment).filter_by(comment_id=comment_id))
+        return result.scalar_one_or_none()
+
+    async def get_all_comment(self, skip: int = 0, limit: int = 10) -> List[Comment]:
+        result = await self.session.execute(select(Comment).offset(skip).limit(limit))
+        return list(result.scalars().all())
+
+    async def delete_comment(self, comment_id: int) -> None:
+        result = await self.session.execute(select(Comment).where(Comment.comment_id == comment_id))  # type: ignore
+        comment = result.scalar_one_or_none()
+        if comment:
+            await self.session.delete(comment)
+            await self.session.commit()

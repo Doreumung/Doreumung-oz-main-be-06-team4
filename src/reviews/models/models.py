@@ -1,8 +1,12 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import func, DateTime, UniqueConstraint
+from sqlalchemy import DateTime, UniqueConstraint, func
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from src.user.models.models import User
+
 
 class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
@@ -46,7 +50,6 @@ class Like(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
     created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
-
 
     # 관계 정의
     user: Optional["User"] = Relationship(back_populates="likes", sa_relationship_kwargs={"lazy": "select"})

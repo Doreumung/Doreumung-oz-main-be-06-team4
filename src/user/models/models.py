@@ -3,14 +3,15 @@ import string
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import EmailStr, ValidationError
-from sqlalchemy import  Date, DateTime
+from sqlalchemy import Date, DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
-
 from sqlmodel import Field, Relationship, SQLModel
+
+from src.reviews.models.models import Comment, Like
 
 
 class Gender(StrEnum):
@@ -41,8 +42,12 @@ class User(SQLModel, table=True):
         default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
     )
     travel_routes: list["TravelRoute"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})  # type: ignore
-    likes: list["Like"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "joined"})
-    comments: list["Comment"] = Relationship( back_populates="user", sa_relationship_kwargs={"lazy": "joined"})
+    likes: list["Like"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
+    )
+    comments: list["Comment"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
+    )
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:

@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import AsyncGenerator, Generator, Optional
+from typing import AsyncGenerator, Generator, Optional, cast
 
 import pytest
 import pytest_asyncio
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from src.config.orm import Base
 from src.reviews.models.models import Comment, Like, Review, ReviewImage
+from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 
 DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/doreumung"
@@ -61,13 +62,32 @@ async def setup_data(async_session: AsyncSession) -> Optional[User]:
     return await async_session.get(User, "1")
 
 
+@pytest_asyncio.fixture(scope="function")
+async def setup_travelroute(async_session: AsyncSession) -> Optional[TravelRoute]:
+    route = TravelRoute(
+        id=1,
+        user_id="1",
+        regions="제주시",
+        themes="자연",
+        breakfast=True,
+        morning=1,
+        lunch=True,
+        afternoon=1,
+        dinner=True,
+    )
+    async_session.add(route)
+    await async_session.commit()
+    return await async_session.get(TravelRoute, 1)
+
+
 @pytest.mark.asyncio
-async def test_review_model(async_session: AsyncSession, setup_data: User) -> None:
+async def test_review_model(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
     user = setup_data
 
     # 테스트 데이터 생성
     review = Review(
         user_id=str(user.id),
+        travelroute_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -87,11 +107,14 @@ async def test_review_model(async_session: AsyncSession, setup_data: User) -> No
 
 
 @pytest.mark.asyncio
-async def test_image_relationship(async_session: AsyncSession, setup_data: User) -> None:
+async def test_image_relationship(
+    async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
+) -> None:
     user = setup_data
 
     review = Review(
         user_id=str(user.id),
+        travelroute_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -116,10 +139,11 @@ async def test_image_relationship(async_session: AsyncSession, setup_data: User)
 
 
 @pytest.mark.asyncio
-async def test_comment_model(async_session: AsyncSession, setup_data: User) -> None:
+async def test_comment_model(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
     user = setup_data
     review = Review(
         user_id=str(user.id),
+        travelroute_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -148,10 +172,12 @@ async def test_comment_model(async_session: AsyncSession, setup_data: User) -> N
 
 
 @pytest.mark.asyncio
-async def test_like_model(async_session: AsyncSession, setup_data: User) -> None:
+async def test_like_model(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
     user = setup_data
+
     review = Review(
         user_id=str(user.id),
+        travelroute_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",

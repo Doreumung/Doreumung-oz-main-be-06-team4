@@ -91,8 +91,6 @@ async def test_review_model(async_session: AsyncSession, setup_data: User, setup
         title="Test Review",
         rating=5,
         content="Test content",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
     )
     async_session.add(review)
     await async_session.commit()
@@ -118,8 +116,6 @@ async def test_image_relationship(
         title="Test Review",
         rating=5,
         content="Test content",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
     )
     async_session.add(review)
     await async_session.commit()
@@ -147,8 +143,6 @@ async def test_comment_model(async_session: AsyncSession, setup_data: User, setu
         title="Test Review",
         rating=5,
         content="Test content",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
     )
     async_session.add(review)
     await async_session.commit()
@@ -157,8 +151,6 @@ async def test_comment_model(async_session: AsyncSession, setup_data: User, setu
         user_id=str(user.id),
         review_id=review.id,
         content="Test content",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
     )
     async_session.add(comment)
     await async_session.commit()
@@ -181,8 +173,6 @@ async def test_like_model(async_session: AsyncSession, setup_data: User, setup_t
         title="Test Review",
         rating=5,
         content="Test content",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
     )
     async_session.add(review)
     await async_session.commit()
@@ -190,7 +180,6 @@ async def test_like_model(async_session: AsyncSession, setup_data: User, setup_t
     like = Like(
         user_id=str(user.id),
         review_id=review.id,
-        created_at=datetime.now(),
     )
     async_session.add(like)
     await async_session.commit()

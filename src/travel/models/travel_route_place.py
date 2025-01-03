@@ -20,7 +20,9 @@ class TravelRoute(BaseDatetime, table=True):
     lunch: bool
     afternoon: int
     dinner: bool
-    travel_route_places: list["TravelRoutePlace"] = Relationship(back_populates="travel_route")
+    travel_route_places: list["TravelRoutePlace"] = Relationship(
+        back_populates="travel_route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     user: User = Relationship(back_populates="travel_routes")
 
 
@@ -33,3 +35,4 @@ class TravelRoutePlace(BaseDatetime, table=True):
     route_time: time
     distance: float
     travel_route: "TravelRoute" = Relationship(back_populates="travel_route_places")
+    place: "Place" = Relationship(back_populates="travel_route_places")  # type: ignore

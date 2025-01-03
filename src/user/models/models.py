@@ -41,7 +41,7 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
     )
-    travel_routes: list["TravelRoute"] = Relationship(back_populates="user")  # type: ignore
+    travel_routes: list["TravelRoute"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})  # type: ignore
 
     @staticmethod
     def _is_bcrypt_pattern(password: str) -> bool:

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from src.travel.models.base import BaseDatetime
 from src.travel.models.enums import RegionEnum, ThemeEnum
@@ -14,6 +14,9 @@ class Place(BaseDatetime, table=True):
     address: RegionEnum
     latitude: float
     longitude: float
+    travel_route_places: list["TravelRoutePlace"] = Relationship(  # type: ignore
+        back_populates="place", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class PlaceUpdate(SQLModel):

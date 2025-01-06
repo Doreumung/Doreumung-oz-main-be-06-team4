@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import DateTime, UniqueConstraint, func
@@ -8,11 +9,17 @@ if TYPE_CHECKING:
     from src.user.models.models import User
 
 
+class ImageSourceType(str, Enum):
+    UPLOAD = "upload"
+    LINK = "link"
+
+
 class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
-    filepath: str = Field(max_length=255, nullable=False)  # 이미지 파일 경로
+    filepath: str = Field(max_length=255, nullable=False)  # 이미지 파일 경로나 URL
+    source_type: ImageSourceType = Field(nullable=False)  # 이미지 출처 (업로드/링크)
 
     # 부모 관계
     review: Optional["Review"] = Relationship(back_populates="images")
@@ -26,7 +33,7 @@ class ReviewImage(SQLModel, table=True):
 class Review(SQLModel, table=True):
     __tablename__ = "reviews"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id", nullable=False)
     travelroute_id: int = Field(foreign_key="travelroute.id", nullable=False)
     title: str = Field(max_length=255, nullable=False)
@@ -47,7 +54,7 @@ class Review(SQLModel, table=True):
 class Like(SQLModel, table=True):
     __tablename__ = "likes"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
     created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
@@ -63,7 +70,7 @@ class Like(SQLModel, table=True):
 class Comment(SQLModel, table=True):
     __tablename__ = "comments"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
     content: str = Field(nullable=False)

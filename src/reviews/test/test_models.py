@@ -109,7 +109,6 @@ async def test_image_relationship(
     async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
 ) -> None:
     user = setup_data
-
     review = Review(
         user_id=str(user.id),
         travelroute_id=int(cast(int, setup_travelroute.id)),
@@ -121,8 +120,10 @@ async def test_image_relationship(
     await async_session.commit()
 
     # 이미지 생성
-    review_image = ReviewImage(review_id=review.id, filepath="/images/test.jpg")
-    async_session.add(review_image)
+    review_image_upload = ReviewImage(review_id=review.id, filepath="/images/test_upload.jpg", source_type="upload")
+    review_image_link = ReviewImage(review_id=review.id, filepath="https://example.com/image.jpg", source_type="link")
+
+    async_session.add_all([review_image_upload, review_image_link])
     await async_session.commit()
 
     # 데이터 검증
@@ -130,8 +131,16 @@ async def test_image_relationship(
     retrieved_review = result.scalars().first()
 
     assert retrieved_review is not None
-    assert len(retrieved_review.images) == 1
-    assert retrieved_review.images[0].filepath == "/images/test.jpg"
+    assert len(retrieved_review.images) == 2
+
+    # 업로드 된 이미지 확인
+    uploaded_image = next((img for img in retrieved_review.images if img.source_type == "upload"), None)
+    assert uploaded_image is not None
+    assert uploaded_image.filepath == "/images/test_upload.jpg"
+    # 링크 이미지 확인
+    liked_image = next((img for img in retrieved_review.images if img.source_type == "link"), None)
+    assert liked_image is not None
+    assert liked_image.filepath == "https://example.com/image.jpg"
 
 
 @pytest.mark.asyncio

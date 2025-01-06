@@ -23,7 +23,7 @@ class UserMeResponse(BaseModel):
     email: EmailStr
     password: str
     nickname: str
-    gender: Optional[Gender] = Field(default=None)
+    gender: Optional[Gender] = None
     birthday: date
 
     model_config = ConfigDict(from_attributes=True)

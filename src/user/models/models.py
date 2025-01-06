@@ -53,7 +53,7 @@ class User(Base):  # type: ignore
         password: str,
         nickname: str,
         birthday: date,
-        gender: Gender,
+        gender: Optional[Gender],
     ) -> "User":
         from src.user.services.authentication import hash_password
 

@@ -10,7 +10,7 @@ class SignUpRequestBody(BaseModel):
     email: EmailStr
     password: str
     nickname: str = Field(..., max_length=30)
-    gender: Optional[Gender] = Field(default=None)
+    gender: Optional[Gender] = None
     birthday: date
 
 

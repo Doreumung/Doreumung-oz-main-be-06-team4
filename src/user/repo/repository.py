@@ -17,17 +17,17 @@ class UserRepository:
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         result = await self.session.execute(select(User).filter_by(id=user_id))
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def get_user_by_email(self, email: EmailStr) -> User | None:
         result = await self.session.execute(select(User).filter_by(email=email))
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def get_user_by_social_email(self, social_provider: SocialProvider, email: EmailStr) -> User | None:
         result = await self.session.execute(
-            select(User).filter(User.social_provider == social_provider, User.email == email)
+            select(User).filter(User.social_provider == social_provider, User.email == email)  # type: ignore
         )
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def delete(self, user: User) -> None:
         await self.session.delete(user)

@@ -1,8 +1,11 @@
+import asyncio
 import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel
 
 from src.config import settings
 from src.config.orm import Base
@@ -16,8 +19,6 @@ if config.config_file_name is not None:
 
 
 from src.reviews.models.models import *
-from src.travel.models.place import Place
-from src.travel.models.travel_route_place import TravelRoute, TravelRoutePlace
 
 # ORM 모델의 Metadata
 from src.user.models.models import *  # nopa
@@ -30,8 +31,12 @@ def get_url() -> str:
 
 
 # 두 sqlalchemy방식과 SQLModel방식 metadata 병합
-target_metadata = Base.metadata
+combined_metadata = MetaData()
+for metadata in [Base.metadata, SQLModel.metadata]:
+    for table in metadata.tables.values():
+        table.tometadata(combined_metadata)
 
+target_metadata = combined_metadata
 # 비동기 URL을 동기 URL로 변환
 sync_url = get_url()
 

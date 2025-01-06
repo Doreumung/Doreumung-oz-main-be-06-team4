@@ -1,7 +1,7 @@
 """Add place
 
 Revision ID: eb7c15a34784
-Revises: 93aaf325759e
+Revises: 29690dffa788
 Create Date: 2024-12-30 17:47:04.939262
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "eb7c15a34784"
-down_revision: Union[str, None] = "93aaf325759e"
+down_revision: Union[str, None] = "29690dffa788"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

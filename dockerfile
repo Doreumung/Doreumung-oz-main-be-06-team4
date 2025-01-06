@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1
+    
 # PostgreSQL 의존성 설치
 RUN apt-get update \
     && apt-get install -y libpq-dev gcc \
@@ -21,5 +22,5 @@ ENV PATH="$POETRY_HOME/bin:$PATH"
 COPY pyproject.toml poetry.lock alembic.ini ./
 RUN poetry install --no-root --no-dev
 
-CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000"]
 
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000"]

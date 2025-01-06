@@ -1,11 +1,9 @@
-import asyncio
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 
 from src.config import settings
-from src.config.database.connection_async import get_async_session
 from src.user.dtos.request import (
     RefreshTokenRequest,
     SignUpRequestBody,
@@ -31,11 +29,6 @@ from src.user.services.social_auth import (
 router = APIRouter(prefix="/api/v1", tags=["User"])
 
 
-async def send_welcome_email(email: str) -> None:
-    await asyncio.sleep(5)
-    print(f"Sending welcome email to {email}")
-
-
 @router.post(
     "/user/signup",
     response_model=UserMeResponse,
@@ -45,12 +38,17 @@ async def sign_up_handler(
     body: SignUpRequestBody,
     user_repo: UserRepository = Depends(),
 ) -> UserMeResponse:
+    # birthday가 이미 str로 되어있으면 fromisoformat을 사용하여 변환
+    if isinstance(body.birthday, str):
+        birthday = date.fromisoformat(body.birthday)
+    else:
+        birthday = body.birthday  # 이미 date 객체일 경우 그대로 사용
     new_user = User.create(
         email=body.email,
         password=body.password,
         nickname=body.nickname,
         gender=body.gender,
-        birthday=body.birthday,
+        birthday=birthday,
     )
     await user_repo.save(user=new_user)  # save를 비동기 처리
     return UserMeResponse.model_validate(obj=new_user)

@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -9,7 +10,7 @@ class SignUpRequestBody(BaseModel):
     email: EmailStr
     password: str
     nickname: str = Field(..., max_length=30)
-    gender: Gender
+    gender: Optional[Gender] = Field(default=None)
     birthday: date
 
 

@@ -1,6 +1,8 @@
 from datetime import date, datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
+from sqlmodel import Field
 
 from src.user.models.models import Gender
 
@@ -21,7 +23,7 @@ class UserMeResponse(BaseModel):
     email: EmailStr
     password: str
     nickname: str
-    gender: Gender
+    gender: Optional[Gender] = Field(default=None)
     birthday: date
 
     model_config = ConfigDict(from_attributes=True)

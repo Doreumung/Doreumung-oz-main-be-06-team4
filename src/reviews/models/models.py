@@ -49,6 +49,7 @@ class Review(SQLModel, table=True):
     images: List["ReviewImage"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
     likes: List["Like"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
     comments: List["Comment"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
+    user: Optional["User"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "select"})
 
 
 class Like(SQLModel, table=True):

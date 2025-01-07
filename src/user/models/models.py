@@ -11,7 +11,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import String, func
 from sqlmodel import Field, Relationship, SQLModel
 
-from src.reviews.models.models import Comment, Like
+from src.reviews.models.models import Comment, Like, Review
 
 
 class Gender(StrEnum):
@@ -46,6 +46,9 @@ class User(SQLModel, table=True):
         back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
     )
     comments: list["Comment"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
+    )
+    review: Optional["Review"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
     )
 

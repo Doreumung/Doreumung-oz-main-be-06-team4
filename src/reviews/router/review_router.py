@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import Integer, String, and_, cast, func
+from sqlalchemy import Integer, and_, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
@@ -223,97 +223,103 @@ async def get_all_review_handler(
     }
 
 
-# """
-# 리뷰 수정 api
-# """
-# @review_router.patch(
-#     "/reviews/{review_id}",
-#     response_model=ReviewResponse,
-#     status_code=status.HTTP_200_OK,
-# )
-# async def update_review_handler(
-#     review_id: int,
-#     body: ReviewRequestBase,
-#     files: Optional[List[UploadFile]] = File(None),
-#     image_urls: Optional[List[str]] = None,
-#     review_repo: ReviewRepo = Depends(),
-#     user_id: str = Depends(authenticate),
-# ) -> ReviewResponse:
-#
-#     if not isinstance(review_id, int):
-#         raise ValueError("review_id must be an integer")
-#     query = select(Review).where(cast(Review.id, Integer) == review_id)
-#     result = await review_repo.session.execute(query)
-#     review = result.scalar_one_or_none()
-#     if not review:
-#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No review found")
-#
-#     if review.user_id != user_id:
-#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
-#
-#     # 수정 가능한 필드 업데이트
-#     if body.title is not None:
-#         review.title = body.title
-#     if body.content is not None:
-#         review.content = body.content
-#     if body.rating is not None:
-#         review.rating = body.rating
-#     review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
-#
-#     # 기존 이미지 삭제
-#     existing_images = await review_repo.get_image_by_id(review_id)
-#     if existing_images:  # None이 아닌 경우에만 처리
-#         for image in existing_images:
-#             if image.source_type == "upload":
-#                 file_path = Path(image.filepath)
-#                 if file_path.exists():
-#                     file_path.unlink()
-#             await review_repo.delete_image(image.id)
-#
-#     # 새 URL 및 파일 업로드 처리
-#     if image_urls:
-#         await handle_image_urls(image_urls, review_id, review_repo)
-#     if files:
-#         await handle_file_upload(files, review_id, review_repo)
-#
-#     await review_repo.save_review(review)
-#     return ReviewResponse.model_validate(obj=review)
-#
-#
-# """
-# 리뷰 삭제 API
-# """
-#
-#
-# @review_router.delete(
-#     "/reviews/{review_id}",
-#     response_model=Dict[str, str],
-#     status_code=status.HTTP_200_OK,
-# )
-# async def delete_review_handler(
-#     review_id: int,
-#     review_repo: ReviewRepo = Depends(),
-#     user_id: str = Depends(authenticate),
-# ) -> dict[str, str]:
-#
-#     query = select(Review).where(cast(Review.id, Integer) == review_id)
-#     result = await review_repo.session.execute(query)
-#     review = result.scalar_one_or_none()
-#     if not review:
-#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No review found")
-#
-#     if review.user_id != user_id:
-#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
-#
-#     async with review_repo.session.begin():
-#         images = await review_repo.get_image_by_id(review_id)
-#         for image in images:
-#             if image.source_type == "upload":
-#                 file_path = Path(image.filepath)
-#                 if file_path.exists():
-#                     file_path.unlink()
-#             await review_repo.delete_image(image.id)
-#
-#         await review_repo.delete_review(review)
-#
-#     return {"message": "Review deleted"}
+"""
+리뷰 수정 api
+"""
+
+
+@review_router.patch(
+    "/reviews/{review_id}",
+    response_model=ReviewResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def update_review_handler(
+    review_id: int,
+    body: ReviewRequestBase,
+    files: Optional[List[UploadFile]] = File(None),
+    image_urls: Optional[List[str]] = None,
+    review_repo: ReviewRepo = Depends(),
+    user_id: str = Depends(authenticate),
+) -> ReviewResponse:
+
+    if not isinstance(review_id, int):
+        raise ValueError("review_id must be an integer")
+    query = (
+        select(Review, User.nickname)  # type: ignore
+        .join(User, User.id == Review.user_id)
+        .where(cast(Review.id, Integer) == review_id)
+    )
+
+    result = await review_repo.session.execute(query)
+    review, nickname = result.unique().one_or_none()
+    if not review:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No review found")
+
+    if review.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
+
+    # 수정 가능한 필드 업데이트
+    if body.title is not None:
+        review.title = body.title
+    if body.content is not None:
+        review.content = body.content
+    if body.rating is not None:
+        review.rating = body.rating
+    review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+
+    # 기존 이미지 삭제
+    existing_images = await review_repo.get_image_by_id(review_id)
+    if existing_images:  # None이 아닌 경우에만 처리
+        for image in existing_images:
+            if image.source_type == "upload":
+                file_path = Path(image.filepath)
+                if file_path.exists():
+                    file_path.unlink()
+            await review_repo.delete_image(image.id)
+
+    # 새 URL 및 파일 업로드 처리
+    if image_urls:
+        await handle_image_urls(image_urls, review_id, review_repo)
+    if files:
+        await handle_file_upload(files, review_id, review_repo)
+
+    await review_repo.save_review(review)
+    return ReviewResponse.model_validate({**review.__dict__, "nickname": nickname})
+
+
+"""
+리뷰 삭제 API
+"""
+
+
+@review_router.delete(
+    "/reviews/{review_id}",
+    response_model=Dict[str, str],
+    status_code=status.HTTP_200_OK,
+)
+async def delete_review_handler(
+    review_id: int,
+    review_repo: ReviewRepo = Depends(),
+    user_id: str = Depends(authenticate),
+) -> dict[str, str]:
+
+    query = select(Review).where(cast(Review.id, Integer) == review_id)
+    result = await review_repo.session.execute(query)
+    review = result.unique().scalar_one_or_none()
+    if not review:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No review found")
+
+    if review.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
+
+    images = await review_repo.get_image_by_id(review_id)
+    for image in images:
+        if image.source_type == "upload":
+            file_path = Path(image.filepath)
+            if file_path.exists():
+                file_path.unlink()
+        await review_repo.delete_image(image.id)
+
+    await review_repo.delete_review(review)
+
+    return {"message": "Review deleted"}

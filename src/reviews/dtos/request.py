@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class ReviewRequestBase(BaseModel):
     user_id: str
-    travelroute_id: int
+    travelroute_id: Optional[int]
     nickname: str
     title: str
     rating: float

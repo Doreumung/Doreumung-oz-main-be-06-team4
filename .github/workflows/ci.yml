@@ -66,6 +66,9 @@ jobs:
         run: |
           poetry install --no-root
 
+      - name: Set PYTHONPATH
+        run: export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+
       - name: Run black
         run: |
           poetry run black . --check
@@ -76,7 +79,7 @@ jobs:
 
       - name: Run Mypy
         run: |
-          poetry run mypy . --show-traceback --verbose
+          poetry run mypy . 
 
       - name: Test python project
         run: |

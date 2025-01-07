@@ -11,7 +11,7 @@ class Place(BaseDatetime, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(unique=True, max_length=100)  # varchar(255)로 설정됨 이름중복 x
     theme: ThemeEnum
-    region: RegionEnum
+    address: RegionEnum
     latitude: float
     longitude: float
     travel_route_places: list["TravelRoutePlace"] = Relationship(  # type: ignore
@@ -22,6 +22,6 @@ class Place(BaseDatetime, table=True):
 class PlaceUpdate(SQLModel):
     name: str | None = None
     theme: ThemeEnum | None = None
-    region: RegionEnum | None = None
+    address: RegionEnum | None = None
     latitude: float | None = None
     longitude: float | None = None

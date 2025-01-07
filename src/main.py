@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 
 from src.travel.router.travel_router import router as travel_router
+from src.reviews.router.review_router import review_router
 from src.user.router.router import router
 
 app = FastAPI()
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(travel_router)
+app.include_router(review_router)
 
 
 @app.get("/")

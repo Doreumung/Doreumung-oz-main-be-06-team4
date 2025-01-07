@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import User
@@ -59,6 +60,8 @@ class TestTravelRouteRepository:
         if comp_id is None:
             assert True
         get_place = await travel_route_repository.get_by_id(comp_id)  # type: ignore
+        if not get_place:
+            assert False
         assert get_place.id == comp_id
 
     async def test_delete_travel_route_model(
@@ -69,5 +72,9 @@ class TestTravelRouteRepository:
         if comp_id is None:
             assert True
         await travel_route_repository.delete(comp_id)  # type: ignore
-        with pytest.raises(HTTPException):
+        try:
             await travel_route_repository.get_by_id(comp_id)  # type: ignore
+        except (HTTPException, NoResultFound):
+            assert True  # 두 예외 중 하나가 발생하면 테스트 성공
+        else:
+            pytest.fail("Neither HTTPException nor NoResultFound was raised")

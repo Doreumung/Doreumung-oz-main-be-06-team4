@@ -14,39 +14,6 @@ from src.reviews.repo.review_repo import CommentRepo, ReviewRepo
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 
-DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/testdb"
-
-# 비동기 엔진 생성
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
-
-# 세션 팩토리 생성
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,
-)
-
-
-@pytest_asyncio.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    # 세션 범위의 이벤트 루프를 설정
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="function")
-async def async_session() -> AsyncGenerator[AsyncSession, None]:
-    # 테스트용 데이터베이스 생성
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with AsyncSessionLocal() as session:
-        yield session
-
-    # 테스트 후 데이터베이스 정리
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
 
 @pytest.fixture(scope="function")
 def sample_review(setup_data: User, setup_travelroute: TravelRoute) -> list[Review]:

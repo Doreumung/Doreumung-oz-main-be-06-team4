@@ -11,7 +11,10 @@ from src.config.orm import Base
 from src.user.models.models import SocialProvider, User
 from src.user.repo.repository import UserRepository
 
-engine = create_async_engine(settings.TEST_ASYNC_DATABASE_URL, echo=True, future=True)
+DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/doreumung"
+
+# 비동기 엔진 생성
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
 # 세션 팩토리 생성
 AsyncSessionLocal = async_sessionmaker(

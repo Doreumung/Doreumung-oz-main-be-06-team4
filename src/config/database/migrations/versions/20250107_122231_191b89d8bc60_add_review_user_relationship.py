@@ -1,8 +1,8 @@
-"""add review model route_id foreign_key
+"""add review user relationship
 
-Revision ID: 08fc04a392ef
-Revises: 64b669f32cc1
-Create Date: 2025-01-03 15:16:42.000469
+Revision ID: 191b89d8bc60
+Revises: 0e1fc8422434
+Create Date: 2025-01-07 12:22:31.550732
 
 """
 
@@ -13,8 +13,8 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "08fc04a392ef"
-down_revision: Union[str, None] = "64b669f32cc1"
+revision: str = "191b89d8bc60"
+down_revision: Union[str, None] = "0e1fc8422434"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -170,6 +170,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("review_id", sa.Integer(), nullable=False),
         sa.Column("filepath", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
+        sa.Column("source_type", sa.Enum("UPLOAD", "LINK", name="imagesourcetype"), nullable=False),
         sa.ForeignKeyConstraint(
             ["review_id"],
             ["reviews.id"],

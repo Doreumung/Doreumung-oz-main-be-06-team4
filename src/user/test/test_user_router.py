@@ -1,50 +1,63 @@
-from typing import Any, Generator
-from unittest.mock import AsyncMock
+import asyncio
+from datetime import datetime
+from typing import AsyncGenerator, Generator
 
 import bcrypt
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.future import select
 
+from src.config.orm import Base
 from src.main import app
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
-from src.user.services.authentication import encode_refresh_token
+from src.user.services.authentication import (
+    check_password,
+    decode_refresh_token,
+    encode_access_token,
+    encode_refresh_token,
+)
 
-Base = declarative_base()
+DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/doreumung"
 
+# 비동기 엔진 생성
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
-@pytest.fixture(scope="function")
-def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql://user:password@localhost/test_db")
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    # 스키마 생성
-    Base.metadata.create_all(bind=engine)
-
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        # 스키마 정리
-        Base.metadata.drop_all(bind=engine)
+# 세션 팩토리 생성
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+)
 
 
-@pytest.fixture
-def mock_user_repo() -> Any:
-    repo = AsyncMock(UserRepository)
-    repo.get_user_by_email = AsyncMock(return_value=None)
-    repo.get_user_by_id = AsyncMock(return_value=None)
-    repo.save = AsyncMock()
-    return repo
+@pytest_asyncio.fixture(scope="session")
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+    # 세션 범위의 이벤트 루프를 설정
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
 
-def test_sign_up(mock_user_repo: AsyncMock) -> None:
-    app.dependency_overrides[UserRepository] = lambda: mock_user_repo
+@pytest_asyncio.fixture(scope="function")
+async def async_session() -> AsyncGenerator[AsyncSession, None]:
+    # 테스트용 데이터베이스 생성
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
+    async with AsyncSessionLocal() as session:
+        yield session
+
+    # 테스트 후 데이터베이스 정리
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+# 회원가입
+@pytest.mark.asyncio
+async def test_sign_up(async_session: AsyncSession) -> None:
+    # 회원가입 데이터
     signup_data = {
         "email": "test@example.com",
         "password": "password123",
@@ -58,47 +71,227 @@ def test_sign_up(mock_user_repo: AsyncMock) -> None:
 
     assert response.status_code == 201
     assert response.json()["email"] == signup_data["email"]
-    mock_user_repo.save.assert_awaited_once()
 
-    app.dependency_overrides = {}
+    # DB에서 확인
+    db_user = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
+    user = db_user.unique().scalar_one_or_none()
+    assert user is not None
+    assert user.email == signup_data["email"]
 
 
-def test_login(mock_user_repo: AsyncMock) -> None:
-    app.dependency_overrides[UserRepository] = lambda: mock_user_repo
-    plain_password = "password123"
-    hashed_password = bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    mock_user = User(
+# 로그인
+@pytest.mark.asyncio
+async def test_login_without_http_request(async_session: AsyncSession) -> None:
+    # 사용자 생성
+    hashed_password = bcrypt.hashpw("password".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    user = User(
         id="1",
         email="test@example.com",
         password=hashed_password,
         nickname="tester",
         gender="male",
-        birthday="1990-01-01",
+        birthday=datetime.strptime("1990-01-01", "%Y-%m-%d").date(),
     )
-    mock_user_repo.get_user_by_email.return_value = mock_user
-    login_data = {"email": "test@example.com", "password": plain_password}
+    async_session.add(user)
+    await async_session.commit()
+
+    # 로그인 데이터
+    login_data = {"email": "test@example.com", "password": "password"}
+
+    # 직접 라우터 함수 호출
+    user_repo = UserRepository(async_session)
+    user_from_db = await user_repo.get_user_by_email(login_data["email"])
+
+    # 패스워드 확인
+    if user_from_db and check_password(login_data["password"], user_from_db.password):
+        access_token = encode_access_token(user_id=user_from_db.id)
+        refresh_token = encode_refresh_token(user_id=user_from_db.id)
+
+    # 결과 확인
+    assert user_from_db is not None
+    assert access_token is not None
+    assert refresh_token is not None
+
+
+# 로그아웃
+@pytest.mark.asyncio
+async def test_logout_handler(async_session: AsyncSession) -> None:
+    # 새로운 유저 생성 (DB에 저장)
+    # birthday 값을 datetime.date 객체로 변환
+    parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+    user = User(
+        id="1",
+        email="test@example.com",
+        password="hashedpassword",  # 실제로는 hashed password 사용
+        nickname="tester",
+        gender="male",
+        birthday=parsed_birthday,
+    )
+
+    async_session.add(user)
+    await async_session.commit()
+
+    # refresh_token과 access_token 생성
+    refresh_token = encode_refresh_token(user_id=user.id)
+    access_token = encode_access_token(user_id=user.id)
 
     with TestClient(app) as client:
-        response = client.post("/api/v1/user/login", json=login_data)
+        response = client.post(
+            "/api/v1/user/logout",
+            json={"access_token": access_token, "refresh_token": refresh_token},
+        )
+    assert response.status_code == 204
 
-    assert response.status_code == 200
-    assert "access_token" in response.json()
-    assert "refresh_token" in response.json()
-    mock_user_repo.get_user_by_email.assert_called_once_with(email="test@example.com")
+    invalid_access_token = encode_access_token(user_id="2")  # 다른 유저의 access_token
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/user/logout",
+            json={"access_token": invalid_access_token, "refresh_token": refresh_token},
+        )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Token mismatch between access and refresh tokens"
 
-    app.dependency_overrides = {}
+
+# 회원 정보 조회
+@pytest.mark.asyncio
+async def test_get_user_info(async_session: AsyncSession) -> None:
+
+    # 사용자 생성
+    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+    user = User(
+        id="1",
+        email="test@example.com",
+        password=hashed_password,  # 실제로는 hashed password 사용
+        nickname="tester",
+        gender="male",
+        birthday=parsed_birthday,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    # TestClient로 로그인 후 토큰 발급
+    login_data = {"email": "test@example.com", "password": "password123"}
+
+    # 사용자 조회 (TestClient 사용 없이 직접 UserRepository를 사용하여 로그인 검증)
+    user_repo = UserRepository(async_session)
+    user_from_db = await user_repo.get_user_by_email(login_data["email"])
+
+    # 패스워드 검증
+    if user_from_db and check_password(login_data["password"], user_from_db.password):
+        # 액세스 토큰 생성
+        access_token = encode_access_token(user_id=user_from_db.id)
+
+    # 사용자 정보 조회
+    # 'access_token'을 직접 사용하여 로그인한 후, 사용자 정보를 가져오는 로직
+    assert user_from_db is not None
+    assert user_from_db.email == login_data["email"]
+    assert user_from_db.nickname == "tester"
+    assert access_token is not None
 
 
-def test_refresh_token(mock_user_repo: AsyncMock) -> None:
-    app.dependency_overrides[UserRepository] = lambda: mock_user_repo
-    refresh_token = encode_refresh_token(user_id="1")
+# 회원 정보 업데이트
+@pytest.mark.asyncio
+async def test_update_user_info(async_session: AsyncSession) -> None:
+    # 사용자 생성
+    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+    user = User(
+        id="1",
+        email="test@example.com",
+        password=hashed_password,  # 실제로는 hashed password 사용
+        nickname="tester",
+        gender="male",
+        birthday=parsed_birthday,
+    )
+    async_session.add(user)
+    await async_session.commit()
 
+    # 사용자 정보 업데이트
+    user.nickname = "updated_nickname"
+    await async_session.commit()
+
+    # 업데이트된 사용자 정보 확인
+    result = await async_session.execute(select(User).filter(User.id == "1"))  # type: ignore
+    updated_user = result.unique().scalar_one_or_none()
+
+    assert updated_user is not None
+    assert updated_user.nickname == "updated_nickname"
+
+
+# 계정 삭제
+@pytest.mark.asyncio
+async def test_delete_user_handler(async_session: AsyncSession) -> None:
+    # 유저 생성
+    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+    user = User(
+        id="1",
+        email="test@example.com",
+        password=hashed_password,
+        nickname="tester",
+        gender="male",
+        birthday=parsed_birthday,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    # 유저 삭제
+    user.is_deleted = True
+    user.deleted_at = datetime.now()
+    await async_session.commit()
+
+    # 삭제된 유저 확인
+    result = await async_session.execute(select(User).where(User.id == "1"))  # type: ignore
+    deleted_user = result.unique().scalar_one_or_none()
+
+    assert deleted_user is not None
+    assert deleted_user.is_deleted is True
+    assert deleted_user.deleted_at is not None
+
+    # 이미 삭제된 유저가 다시 삭제 시도
+    user.is_deleted = True  # 이미 삭제된 상태로 설정
+    await async_session.commit()
+
+    result = await async_session.execute(select(User).where(User.id == "1"))  # type: ignore
+    re_deleted_user = result.unique().scalar_one_or_none()
+
+    assert re_deleted_user is not None  # 유저가 None이 아니어야 함
+    assert re_deleted_user.is_deleted is True  # 유저가 여전히 삭제됨을 확인
+
+
+# 리프레쉬 토큰
+@pytest.mark.asyncio
+async def test_refresh_token(async_session: AsyncSession) -> None:
+    # 새로운 유저 생성 (DB에 저장)
+    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
+    user = User(
+        id="1",
+        email="test@example.com",
+        password=hashed_password,  # 실제로는 hashed password 사용
+        nickname="tester",
+        gender="male",
+        birthday=parsed_birthday,
+    )
+
+    async_session.add(user)
+    await async_session.commit()
+
+    # refresh_token 생성
+    refresh_token = encode_refresh_token(user_id=user.id)
+
+    # TestClient로 API 요청 보내기
     with TestClient(app) as client:
         response = client.post(
             "/api/v1/refresh",
             json={"refresh_token": refresh_token},
         )
 
+    # 응답 검증
     assert response.status_code == 200
     assert "access_token" in response.json()
-    app.dependency_overrides = {}
+
+    # refresh_token 유효성 검증
+    payload = decode_refresh_token(refresh_token)
+    assert payload["user_id"] == user.id

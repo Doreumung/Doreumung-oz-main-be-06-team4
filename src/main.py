@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
+
 from src.reviews.router.review_router import review_router
 from src.user.router.router import router
 

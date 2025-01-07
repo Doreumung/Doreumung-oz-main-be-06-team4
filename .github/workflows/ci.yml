@@ -76,7 +76,7 @@ jobs:
 
       - name: Run Mypy
         run: |
-          poetry run mypy .
+          poetry run mypy . 
 
       - name: Test python project
         run: |

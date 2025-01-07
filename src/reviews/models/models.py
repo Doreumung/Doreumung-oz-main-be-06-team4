@@ -1,15 +1,17 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, UniqueConstraint, func
+from sqlalchemy import DateTime
+from sqlalchemy import Enum as SqlEnum
+from sqlalchemy import UniqueConstraint, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from src.user.models.models import User
 
 
-class ImageSourceType(str, Enum):
+class ImageSourceType(StrEnum):
     UPLOAD = "upload"
     LINK = "link"
 
@@ -19,7 +21,7 @@ class ReviewImage(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
     filepath: str = Field(max_length=255, nullable=False)  # 이미지 파일 경로나 URL
-    source_type: ImageSourceType = Field(nullable=False)  # 이미지 출처 (업로드/링크)
+    source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=False)  # type: ignore # 이미지 출처 (업로드/링크)
 
     # 부모 관계
     review: Optional["Review"] = Relationship(back_populates="images")

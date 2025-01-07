@@ -54,23 +54,3 @@ def solve_tsp_brute_force(distance_matrix: list[list[float]]) -> tuple[list[int]
             best_route = route
 
     return best_route, best_distance  # type: ignore
-
-
-# # 예시 거리 행렬
-# distance_matrix = [
-#     [0, 10, 15, 20],
-#     [10, 0, 35, 25],
-#     [15, 35, 0, 30],
-#     [20, 25, 30, 0]
-# ]
-#
-# # 실행
-# route, distance = solve_tsp_all_start_points(distance_matrix)
-# print("Best Route:", route)
-# print("Best Distance:", distance)
-
-
-# 최적 경로 계산 및 출력
-# route_indices = solve_tsp(distance_matrix)
-# route_names = [selected_locations[i] for i in route_indices]
-# print("최적 경로:", route_names)

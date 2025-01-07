@@ -56,7 +56,7 @@ def eating_place_list_to() -> list[Place]:
     )
     place_list.append(
         Place(
-            id=12, name="색달식당 중문본점", theme="식당", region="서귀포시 ", latitude=33.241829, longitude=126.386383
+            id=12, name="색달식당 중문본점", theme="식당", region="서귀포시", latitude=33.241829, longitude=126.386383
         )
     )
     return place_list
@@ -67,13 +67,25 @@ all_place_list = loading_place_list()
 
 
 # service 함수
-def random_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], morning: int, afternoon: int) -> list[Place]:
+def random_place_list(
+    regions: list[RegionEnum],
+    themes: list[ThemeEnum],
+    morning: int = 0,
+    afternoon: int = 0,
+    selected_themes: set[ThemeEnum] | None = None,
+    selected_regions: set[RegionEnum] | None = None,
+    count: int | None = None,
+) -> list[Place]:
     global all_place_list
     filtered_list = [i for i in all_place_list if i.theme in themes and i.region in regions]
-    selected_themes: set[ThemeEnum] = set()
-    selected_regions: set[RegionEnum] = set()
+    if not selected_themes:
+        selected_themes = set()
+    if not selected_regions:
+        selected_regions = set()
     result_place = []
-    for i in range(morning + afternoon):
+    if not count:
+        count = morning + afternoon
+    for i in range(count):
         excluded_list: list[Place] = []
         temp_list = [i for i in filtered_list]
         choice_place = None
@@ -98,7 +110,7 @@ def random_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], mornin
         else:
             break
     # 추가적으로 골라야할 장소의 갯수
-    will_append_place_num = morning + afternoon - len(result_place)
+    will_append_place_num = count - len(result_place)
     if will_append_place_num:
         # 이미선택된 장소 제외
         temp_list = [i for i in filtered_list if i not in result_place]
@@ -155,6 +167,51 @@ def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], sche
     place_list = random_place_list(
         regions=regions, themes=themes, morning=schedule.morning, afternoon=schedule.afternoon
     )
+    distance_matrix = create_distance_matrix(place_list)
+    best_route, best_distance = solve_tsp_brute_force(distance_matrix)
+    sorted_place_list = [place_list[i] for i in best_route]
+    eating_list = eating_place_list_to()
+    breakfast = None
+    morning = [PlaceInfo.model_validate(sorted_place_list[i]) for i in range(schedule.morning)]
+    lunch = None
+    afternoon = [
+        PlaceInfo.model_validate(sorted_place_list[i])
+        for i in range(schedule.morning, schedule.morning + schedule.afternoon)
+    ]
+    dinner = None
+    if schedule.morning > 0:
+        if schedule.breakfast:
+            breakfast = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)  # type: ignore
+            )
+        if schedule.lunch:
+            lunch = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)  # type: ignore
+            )
+        if schedule.dinner:
+            dinner = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)  # type: ignore
+            )
+    schedule = ScheduleInfo(breakfast=breakfast, morning=morning, lunch=lunch, afternoon=afternoon, dinner=dinner)  # type: ignore
+    return schedule  # type: ignore
+
+
+def re_complete_place_list(
+    regions: list[RegionEnum], themes: list[ThemeEnum], schedule: Schedule, pined_place_list: list[Place]
+) -> ScheduleInfo:
+    count = schedule.morning + schedule.afternoon - len(pined_place_list)
+    selected_themes = set()
+    selected_regions = set()
+    for i in pined_place_list:
+        selected_themes.add(i.theme)
+        selected_regions.add(i.region)
+    place_list = random_place_list(
+        regions=regions, themes=themes, count=count, selected_themes=selected_themes, selected_regions=selected_regions
+    )
+    print(place_list)
+    print(place_list)
+    print(place_list)
+    place_list += pined_place_list
     distance_matrix = create_distance_matrix(place_list)
     best_route, best_distance = solve_tsp_brute_force(distance_matrix)
     sorted_place_list = [place_list[i] for i in best_route]

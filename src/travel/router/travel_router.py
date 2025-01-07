@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from src import TravelRoute, TravelRoutePlace  # type: ignore
 from src.travel.dtos.base_travel_route import (
@@ -21,55 +21,73 @@ from src.travel.models.place import Place
 from src.travel.repo.place_repo import PlaceRepository
 from src.travel.repo.travel_route_place_repo import TravelRoutePlaceRepository
 from src.travel.repo.travel_route_repo import TravelRouteRepository
-from src.travel.services.generate_place_list import complete_place_list
+from src.travel.services.generate_place_list import (
+    complete_place_list,
+    re_complete_place_list,
+)
 from src.user.services.authentication import authenticate
 
 router = APIRouter(prefix="/api/v1/travelroute", tags=["Travel"])
 
 
-# @router.get("/init")
-# async def save_init(place_repo: PlaceRepository = Depends()) -> :
-#     place_list = []
-#     place_list.append(Place(name="군산오름", theme="자연", region="안덕면", latitude=33.253217, longitude=126.370693))
-#     place_list.append(
-#         Place(name="서귀포 자연휴양림", theme="자연", region="서귀포시", latitude=33.311453, longitude=126.458861)
-#     )
-#     place_list.append(
-#         Place(name="제주카트클럽", theme="액티비티", region="한림읍", latitude=33.347790, longitude=126.255974)
-#     )
-#     # 제주카트클럽 근처 식당(3km이내)
-#     place_list.append(
-#         Place(name="저지신토불이식당", theme="식당", region="한경면", latitude=33.342593, longitude=126.255824)
-#     )
-#     place_list.append(
-#         Place(name="더애월 저지점", theme="식당", region="한경면", latitude=33.337698, longitude=126.266830)
-#     )
-#     # 서귀포 자연휴양림 근처 식당(3km이내)
-#     place_list.append(
-#         Place(name="엘에이치큐프로", theme="식당", region="서귀포시", latitude=33.306827, longitude=126.432709)
-#     )
-#     place_list.append(Place(name="엘에이", theme="식당", region="서귀포시", latitude=33.308827, longitude=126.432709))
-#     place_list.append(Place(name="큐프로", theme="식당", region="서귀포시", latitude=33.310827, longitude=126.432709))
-#     # 군산오름 근처 식당(3km이내)
-#     place_list.append(Place(name="민영식당", theme="식당", region="서귀포시", latitude=33.246113, longitude=126.388198))
-#     place_list.append(
-#         Place(name="색달식당 중문본점", theme="식당", region="서귀포시", latitude=33.241829, longitude=126.386383)
-#     )
-#     await place_repo.save_bulk(place_list)
-#     return {"massage": "ddd"}
+@router.get("/init")
+async def save_init(place_repo: PlaceRepository = Depends()) -> dict[str, str]:
+    place_list = []
+    place_list.append(Place(name="군산오름", theme="자연", region="안덕면", latitude=33.253217, longitude=126.370693))
+    place_list.append(
+        Place(name="서귀포 자연휴양림", theme="자연", region="서귀포시", latitude=33.311453, longitude=126.458861)
+    )
+    place_list.append(
+        Place(name="제주카트클럽", theme="액티비티", region="한림읍", latitude=33.347790, longitude=126.255974)
+    )
+    # 제주카트클럽 근처 식당(3km이내)
+    place_list.append(
+        Place(name="저지신토불이식당", theme="식당", region="한경면", latitude=33.342593, longitude=126.255824)
+    )
+    place_list.append(
+        Place(name="더애월 저지점", theme="식당", region="한경면", latitude=33.337698, longitude=126.266830)
+    )
+    # 서귀포 자연휴양림 근처 식당(3km이내)
+    place_list.append(
+        Place(name="엘에이치큐프로", theme="식당", region="서귀포시", latitude=33.306827, longitude=126.432709)
+    )
+    place_list.append(Place(name="엘에이", theme="식당", region="서귀포시", latitude=33.308827, longitude=126.432709))
+    place_list.append(Place(name="큐프로", theme="식당", region="서귀포시", latitude=33.310827, longitude=126.432709))
+    # 군산오름 근처 식당(3km이내)
+    place_list.append(Place(name="민영식당", theme="식당", region="서귀포시", latitude=33.246113, longitude=126.388198))
+    place_list.append(
+        Place(name="색달식당 중문본점", theme="식당", region="서귀포시", latitude=33.241829, longitude=126.386383)
+    )
+    await place_repo.save_bulk(place_list)
+    return {"massage": "ddd"}
 
 
-@router.post("/", response_model=GenerateTravelRouteResponse)
+@router.post("", response_model=GenerateTravelRouteResponse)
 async def generator_travel_route(data: GenerateTravelRouteRequest) -> GenerateTravelRouteResponse:
     config = data.config
     schedule = complete_place_list(regions=config.regions, themes=config.themes, schedule=config.schedule)
     return GenerateTravelRouteResponse(config=config, schedule=schedule)
 
 
-# @router.patch("/", response_model=ReGenerateTravelRouteResponse)
-# async def re_generator_travel_route(request_data: ReGenerateTravelRouteRequest) -> ReGenerateTravelRouteResponse:
-#
-#     pass
+@router.patch("", response_model=ReGenerateTravelRouteResponse)
+async def re_generator_travel_route(
+    data: ReGenerateTravelRouteRequest, place_repo: PlaceRepository = Depends()
+) -> ReGenerateTravelRouteResponse:
+    config = data.config
+    schedule_info = data.schedule
+    pined_place_list = []
+    for i in ["breakfast", "morning", "lunch", "afternoon", "dinner"]:
+        if i in ["breakfast", "lunch", "dinner"]:
+            if getattr(schedule_info, i):
+                pined_place_list.append(await place_repo.get_by_id(getattr(schedule_info, i).place_id))
+        else:
+            if getattr(schedule_info, i):
+                for place_info in getattr(schedule_info, i):
+                    pined_place_list.append(await place_repo.get_by_id(place_info.place_id))
+    schedule = re_complete_place_list(
+        regions=config.regions, themes=config.themes, schedule=config.schedule, pined_place_list=pined_place_list
+    )
+    return ReGenerateTravelRouteResponse(config=config, schedule=schedule)
 
 
 @router.post("/save", response_model=SaveTravelRouteResponse)
@@ -155,7 +173,7 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
     )
 
 
-@router.get("/", response_model=list[GetTravelRouteListResponse])
+@router.get("", response_model=list[GetTravelRouteListResponse])
 async def get_travel_routes(
     user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
 ) -> list[GetTravelRouteListResponse]:
@@ -166,13 +184,17 @@ async def get_travel_routes(
     return response_list
 
 
-# @router.get("/{id}", response_model=GetTravelRouteOneResponse)
-# async def get_one_travel_route(id: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()) -> GetTravelRouteOneResponse:
-#     travel_route = travel_route_repo.get_by_id(id)
-#
-#     return await generate_dto(travel_route=travel_route, user_id=user_id)
-#
-#
-# @router.delete("/{id}", status_code=204)
-# async def delete_one_travel_route(id: int) -> None:
-#     pass
+@router.get("/{id}", response_model=GetTravelRouteListResponse)
+async def get_one_travel_route(
+    id: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
+) -> GetTravelRouteListResponse:
+    travel_route = await travel_route_repo.get_by_id(id)
+    return await generate_dto(travel_route=travel_route, user_id=user_id)  # type: ignore
+
+
+@router.delete("/{id}", status_code=204)
+async def delete_one_travel_route(
+    id: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
+) -> None:
+    if not travel_route_repo.delete(id):
+        raise HTTPException(status_code=404, detail="Item not found")

@@ -119,30 +119,45 @@ def place_list_for_service() -> list[Place]:
 @pytest_asyncio.fixture
 async def place_list_init(place_repository: PlaceRepository) -> list[Place]:
     place_list = []
-    place_list.append(Place(name="군산오름", theme="자연", region="안덕면", latitude=33.253217, longitude=126.370693))
     place_list.append(
-        Place(name="서귀포 자연휴양림", theme="자연", region="서귀포시", latitude=33.311453, longitude=126.458861)
+        Place(id=1, name="군산오름", theme="자연", region="안덕면", latitude=33.253217, longitude=126.370693)
     )
     place_list.append(
-        Place(name="제주카트클럽", theme="액티비티", region="한림읍", latitude=33.347790, longitude=126.255974)
-    )
-    # 제주카트클럽 근처 식당(3km이내)
-    place_list.append(
-        Place(name="저지신토불이식당", theme="식당", region="한경면", latitude=33.342593, longitude=126.255824)
+        Place(id=2, name="서귀포 자연휴양림", theme="자연", region="서귀포시", latitude=33.311453, longitude=126.458861)
     )
     place_list.append(
-        Place(name="더애월 저지점", theme="식당", region="한경면", latitude=33.337698, longitude=126.266830)
+        Place(id=3, name="제주카트클럽", theme="액티비티", region="한림읍", latitude=33.347790, longitude=126.255974)
+    )
+    place_list.append(
+        Place(id=4, name="저지신토불이식당", theme="식당", region="한경면", latitude=33.342593, longitude=126.255824)
+    )
+    place_list.append(
+        Place(id=5, name="더애월 저지점", theme="식당", region="한경면", latitude=33.337698, longitude=126.266830)
     )
     # 서귀포 자연휴양림 근처 식당(3km이내)
     place_list.append(
-        Place(name="엘에이치큐프로", theme="식당", region="서귀포시", latitude=33.306827, longitude=126.432709)
+        Place(id=6, name="엘에이치큐프로", theme="식당", region="서귀포시", latitude=33.306827, longitude=126.432709)
     )
-    place_list.append(Place(name="엘에이", theme="식당", region="서귀포시", latitude=33.308827, longitude=126.432709))
-    place_list.append(Place(name="큐프로", theme="식당", region="서귀포시", latitude=33.310827, longitude=126.432709))
-    # 군산오름 근처 식당(3km이내)
-    place_list.append(Place(name="민영식당", theme="식당", region="서귀포시", latitude=33.246113, longitude=126.388198))
     place_list.append(
-        Place(name="색달식당 중문본점", theme="식당", region="서귀포시", latitude=33.241829, longitude=126.386383)
+        Place(id=7, name="엘에이", theme="식당", region="서귀포시", latitude=33.307827, longitude=126.432709)
+    )
+    place_list.append(
+        Place(id=8, name="큐프로", theme="식당", region="서귀포시", latitude=33.310827, longitude=126.432709)
+    )
+    # 군산오름 근처 식당(3km이내)
+    place_list.append(
+        Place(id=9, name="민영식당", theme="식당", region="서귀포시", latitude=33.246113, longitude=126.388198)
+    )
+    place_list.append(
+        Place(id=10, name="식당", theme="식당", region="서귀포시", latitude=33.248113, longitude=126.388198)
+    )
+    place_list.append(
+        Place(id=11, name="민영", theme="식당", region="서귀포시", latitude=33.247113, longitude=126.388198)
+    )
+    place_list.append(
+        Place(
+            id=12, name="색달식당 중문본점", theme="식당", region="서귀포시", latitude=33.241829, longitude=126.386383
+        )
     )
     return await place_repository.save_bulk(place_list)
 
@@ -157,21 +172,8 @@ async def travel_route_init(
         TravelRoute(
             user_id=user1.id,
             title="awdaw",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    travel_route_list.append(
-        TravelRoute(
-            user_id=user1.id,
-            title="awdaw",
-            regions="제주시",
-            themes="자연",
+            regions=["제주시"],
+            themes=["자연"],
             breakfast=True,
             morning=1,
             lunch=True,
@@ -183,8 +185,8 @@ async def travel_route_init(
         TravelRoute(
             user_id=user2.id,
             title="awdaw",
-            regions="제주시",
-            themes="자연",
+            regions=["제주시"],
+            themes=["자연"],
             breakfast=True,
             morning=1,
             lunch=True,
@@ -196,8 +198,8 @@ async def travel_route_init(
         TravelRoute(
             user_id=user2.id,
             title="awdaw",
-            regions="제주시",
-            themes="자연",
+            regions=["제주시"],
+            themes=["자연"],
             breakfast=True,
             morning=1,
             lunch=True,
@@ -209,8 +211,21 @@ async def travel_route_init(
         TravelRoute(
             user_id=user2.id,
             title="awdaw",
-            regions="제주시",
-            themes="자연",
+            regions=["제주시"],
+            themes=["자연"],
+            breakfast=True,
+            morning=1,
+            lunch=True,
+            afternoon=1,
+            dinner=True,
+        )
+    )
+    travel_route_list.append(
+        TravelRoute(
+            user_id=user2.id,
+            title="awdaw",
+            regions=["제주시"],
+            themes=["자연"],
             breakfast=True,
             morning=1,
             lunch=True,

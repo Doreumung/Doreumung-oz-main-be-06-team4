@@ -21,11 +21,16 @@ class TravelRouteRepository:
         await self.async_session.commit()
         return travel_route_list
 
-    async def get_by_id(self, travel_route_id: int) -> TravelRoute:
-        travel = await self.async_session.get(TravelRoute, travel_route_id)
+    async def get_by_id(self, travel_route_id: int) -> TravelRoute | None:
+        travel = await self.async_session.execute(
+            select(TravelRoute)
+            .options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place))  # type: ignore
+            .where(TravelRoute.id == travel_route_id)  # type: ignore
+        )
+        travel = travel.scalars().one_or_none()  # type: ignore
         if not travel:
             raise HTTPException(status_code=404, detail="Item not found")
-        return travel
+        return travel  # type: ignore
 
     async def get_place_list(self) -> list[TravelRoute]:
         result = await self.async_session.execute(select(TravelRoute))
@@ -40,8 +45,8 @@ class TravelRouteRepository:
             raise HTTPException(status_code=404, detail="Item not found")
         return list(travel.scalars().all())
 
-    async def delete(self, place_id: int) -> bool:
-        result = await self.async_session.get(TravelRoute, place_id)
+    async def delete(self, travel_route_id: int) -> bool:
+        result = await self.async_session.get(TravelRoute, travel_route_id)
         if not result:
             raise HTTPException(status_code=404, detail="Item not found")
         await self.async_session.delete(result)

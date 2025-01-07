@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator, Generator, Optional
 
 import pytest_asyncio
@@ -77,3 +77,6 @@ async def setup_travelroute(async_session: AsyncSession, setup_data: User) -> Op
     async_session.add(route)
     await async_session.commit()
     return await async_session.get(TravelRoute, 1)
+
+
+KST = timezone(timedelta(hours=9))

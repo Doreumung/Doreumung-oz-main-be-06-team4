@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import TYPE_CHECKING, List, Optional
 
@@ -31,6 +31,8 @@ class ReviewImage(SQLModel, table=True):
 리뷰와 이미지를 1:N으로 정의해서 한 리뷰에 여러 이미지를 넣도록 테이블 정의
 """
 
+KST = timezone(timedelta(hours=9))
+
 
 class Review(SQLModel, table=True):
     __tablename__ = "reviews"
@@ -42,9 +44,16 @@ class Review(SQLModel, table=True):
     rating: float = Field(nullable=False)  # 범위 제약은 애플리케이션 레벨에서 처리
     content: str = Field(nullable=False)
     like_count: int = Field(default=0, nullable=True)
-    created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
     updated_at: datetime = Field(
-        default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column_kwargs={"onupdate": lambda: datetime.now(KST)},
     )
 
     # 관계 정의

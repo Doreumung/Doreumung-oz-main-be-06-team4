@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 
+from src.reviews.router.comment_router import comment_router
+from src.reviews.router.review_router import review_router
 from src.user.router.router import router
 
 app = FastAPI()
@@ -19,6 +21,9 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(review_router)
+
+# app.include_router(comment_router)
 
 
 @app.get("/")

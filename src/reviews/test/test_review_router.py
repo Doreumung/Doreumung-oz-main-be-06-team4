@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import AsyncGenerator, Generator, Optional
 
 import pytest
 from sqlalchemy import insert

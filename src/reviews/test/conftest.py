@@ -5,11 +5,12 @@ from typing import AsyncGenerator, Generator, Optional
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.config import settings
 from src.config.orm import Base
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 
-DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/testdb"
+DATABASE_URL = settings.TEST_ASYNC_DATABASE_URL
 
 # 비동기 엔진 생성
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

@@ -17,19 +17,20 @@ class TestTravelRouteRepository:
     async def test_save_travel_route_place_model(
         self,
         travel_route_place_repository: TravelRoutePlaceRepository,
+        travel_route_init: list[TravelRoute],
+        place_list_init: list[Place],
     ) -> None:
         travel_route_place = TravelRoutePlace(
-            travel_route_id=1, place_id=1, priority=5, route_time=time(hour=3, minute=30), distance=15.5
+            travel_route_id=travel_route_init[0].id, place_id=place_list_init[0].id, priority=5
         )
         new_travel_route_place = await travel_route_place_repository.save(travel_route_place)
         assert new_travel_route_place.__dict__ == travel_route_place.__dict__ and new_travel_route_place.id
 
     async def test_get_travel_route_list(
-        self,
-        travel_route_place_repository: TravelRoutePlaceRepository,
+        self, travel_route_place_repository: TravelRoutePlaceRepository, travel_route_place_init: list[TravelRoutePlace]
     ) -> None:
         travel_route_place_list = await travel_route_place_repository.get_travel_route_list()
-        assert len(travel_route_place_list) == 5
+        assert len(travel_route_place_list) == len(travel_route_place_init)
 
     async def test_get_travel_route_place_list_by_travel_route(
         self,
@@ -54,10 +55,9 @@ class TestTravelRouteRepository:
         travel_route_place_repository: TravelRoutePlaceRepository,
     ) -> None:
         trp_id = travel_route_place_init[0].id
-        if trp_id is not None:
-            get_travel = await travel_route_place_repository.get_by_id(trp_id)
-            assert get_travel.id == trp_id
-        assert False
+        assert trp_id is not None
+        get_travel = await travel_route_place_repository.get_by_id(trp_id)
+        assert get_travel.id == trp_id
 
     async def test_delete_travel_route_model(
         self, travel_route_place_init: list[TravelRoutePlace], travel_route_place_repository: TravelRoutePlaceRepository

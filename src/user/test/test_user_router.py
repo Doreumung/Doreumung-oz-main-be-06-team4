@@ -20,7 +20,7 @@ from src.user.services.authentication import (
     encode_refresh_token,
 )
 
-DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/doreumung"
+DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/testdb"
 
 # 비동기 엔진 생성
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

@@ -156,6 +156,7 @@ async def travel_route_init(
     travel_route_list.append(
         TravelRoute(
             user_id=user1.id,
+            title="awdaw",
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -168,6 +169,7 @@ async def travel_route_init(
     travel_route_list.append(
         TravelRoute(
             user_id=user1.id,
+            title="awdaw",
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -180,6 +182,7 @@ async def travel_route_init(
     travel_route_list.append(
         TravelRoute(
             user_id=user2.id,
+            title="awdaw",
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -192,6 +195,7 @@ async def travel_route_init(
     travel_route_list.append(
         TravelRoute(
             user_id=user2.id,
+            title="awdaw",
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -204,6 +208,7 @@ async def travel_route_init(
     travel_route_list.append(
         TravelRoute(
             user_id=user2.id,
+            title="awdaw",
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -222,7 +227,7 @@ async def travel_route_place_init(
     place_list_init: list[Place],
     travel_route_init: list[TravelRoute],
     travel_route_place_repository: TravelRoutePlaceRepository,
-) -> None:
+) -> list[TravelRoutePlace]:
     place_id = place_list_init[0].id
     travel_route_id = travel_route_init[0].id
     travel_route_place_list = []
@@ -231,8 +236,6 @@ async def travel_route_place_init(
             travel_route_id=travel_route_id,
             place_id=place_id,
             priority=5,
-            route_time=time(hour=3, minute=30),
-            distance=15.5,
         )
     )
     travel_route_place_list.append(
@@ -240,8 +243,6 @@ async def travel_route_place_init(
             travel_route_id=travel_route_id,
             place_id=place_id,
             priority=4,
-            route_time=time(hour=2, minute=30),
-            distance=13.5,
         )
     )
     travel_route_place_list.append(
@@ -249,8 +250,6 @@ async def travel_route_place_init(
             travel_route_id=travel_route_id,
             place_id=place_id,
             priority=3,
-            route_time=time(hour=1, minute=30),
-            distance=11.5,
         )
     )
     travel_route_place_list.append(
@@ -258,8 +257,6 @@ async def travel_route_place_init(
             travel_route_id=travel_route_id,
             place_id=place_id,
             priority=2,
-            route_time=time(hour=5, minute=30),
-            distance=14.5,
         )
     )
     travel_route_place_list.append(
@@ -267,8 +264,6 @@ async def travel_route_place_init(
             travel_route_id=travel_route_id,
             place_id=place_id,
             priority=1,
-            route_time=time(hour=4, minute=30),
-            distance=12.5,
         )
     )
-    await travel_route_place_repository.save_bulk(travel_route_place_list=travel_route_place_list)
+    return await travel_route_place_repository.save_bulk(travel_route_place_list=travel_route_place_list)

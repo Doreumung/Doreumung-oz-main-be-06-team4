@@ -11,7 +11,7 @@ from src.config.orm import Base
 from src.user.models.models import SocialProvider, User
 from src.user.repo.repository import UserRepository
 
-DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/doreumung"
+DATABASE_URL = "postgresql+asyncpg://postgres:0000@localhost:5432/testdb"
 
 # 비동기 엔진 생성
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

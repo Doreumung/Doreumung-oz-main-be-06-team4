@@ -63,7 +63,7 @@ router = APIRouter(prefix="/api/v1/travelroute", tags=["Travel"])
 async def generator_travel_route(data: GenerateTravelRouteRequest) -> GenerateTravelRouteResponse:
     config = data.config
     schedule = complete_place_list(regions=config.regions, themes=config.themes, schedule=config.schedule)
-    return GenerateTravelRouteResponse(config=config, schedule=schedule)  # type: ignore
+    return GenerateTravelRouteResponse(config=config, schedule=schedule)
 
 
 # @router.patch("/", response_model=ReGenerateTravelRouteResponse)

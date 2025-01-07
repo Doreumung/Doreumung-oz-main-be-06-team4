@@ -19,6 +19,7 @@ class TestTravelRouteRepository:
         user1, user2 = user_save_init
         travel_route = TravelRoute(
             id=6,
+            title="ddd",
             user_id=user1.id,
             regions="제주시",
             themes="자연",

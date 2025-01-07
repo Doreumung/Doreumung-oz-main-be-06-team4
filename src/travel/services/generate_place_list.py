@@ -151,7 +151,7 @@ def random_eating_place_list(start_place: Place, end_place: Place | None, place_
     return choice_place
 
 
-def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], schedule: Schedule) -> list[Place]:
+def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], schedule: Schedule) -> ScheduleInfo:
     place_list = random_place_list(
         regions=regions, themes=themes, morning=schedule.morning, afternoon=schedule.afternoon
     )

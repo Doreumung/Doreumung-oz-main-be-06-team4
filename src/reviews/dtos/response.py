@@ -8,6 +8,7 @@ from src.reviews.models.models import ImageSourceType
 
 class ReviewImageResponse(BaseModel):
     id: int
+    review_id: int
     filepath: str
     source_type: ImageSourceType
 

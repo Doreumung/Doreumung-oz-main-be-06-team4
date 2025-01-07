@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import pytest
 from fastapi import UploadFile
@@ -33,13 +33,13 @@ async def test_create_review_handler(
     async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
 ) -> None:
     user = setup_data
-    travelroute = setup_data
+    travelroute = setup_travelroute
 
     # 실제 데이터베이스에 ReviewRepo 초기화
     review_repo = ReviewRepo(async_session)
 
     # 요청 데이터 생성
-    body_data = {
+    body_data: Dict[str, Any] = {
         "user_id": user.id,
         "travelroute_id": travelroute.id,
         "title": "Test Review",
@@ -48,7 +48,7 @@ async def test_create_review_handler(
         "nickname": "test_user",
         "images": [],
     }
-    body = ReviewRequestBase(**body_data)  # type: ignore
+    body = ReviewRequestBase(**body_data)
 
     # 이미지 URL 데이터 준비
     image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
@@ -67,6 +67,13 @@ async def test_create_review_handler(
     assert result.title == body.title
     assert result.rating == body.rating
     assert result.content == body.content
+
+    # 이미지 URL 검증
+    assert len(result.images) == len(image_urls)
+    for i, image in enumerate(result.images):
+        assert image.review_id == result.id
+        assert image.filepath == image_urls[i]
+        assert image.source_type == "link"
 
     # 데이터베이스에서 리뷰 확인
     saved_review = await async_session.get(Review, result.id)

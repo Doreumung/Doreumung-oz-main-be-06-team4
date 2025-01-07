@@ -86,6 +86,7 @@ async def create_review_handler(
                     image_responses.append(
                         ReviewImageResponse(
                             id=new_image.id,
+                            review_id=saved_review.id,
                             filepath=new_image.filepath,
                             source_type=new_image.source_type,
                         )

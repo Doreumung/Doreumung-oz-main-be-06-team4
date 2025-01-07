@@ -32,6 +32,7 @@ pytest-mock = "^3.14.0"
 pytest-asyncio = "^0.25.0"
 respx = "^0.22.0"
 sqlmodel = "^0.0.22"
+ortools = "^9.11.4210"
 
 
 [build-system]
@@ -56,7 +57,3 @@ env = [
 ]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope="function"
-#asyncio_mode = "auto"
-
-[pytest]
-#asyncio_mode = "auto"

@@ -7,6 +7,7 @@ class ThemeEnum(str, Enum):
     카페 = "카페"
     전시 = "전시"
     액티비티 = "액티비티"
+    식당 = "식당"
 
 
 class RegionEnum(str, Enum):

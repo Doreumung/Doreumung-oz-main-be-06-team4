@@ -27,6 +27,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("title", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("user_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("regions", sa.JSON(), nullable=False),
         sa.Column("themes", sa.JSON(), nullable=False),
@@ -49,8 +50,6 @@ def upgrade() -> None:
         sa.Column("travel_route_id", sa.Integer(), nullable=True),
         sa.Column("place_id", sa.Integer(), nullable=False),
         sa.Column("priority", sa.Integer(), nullable=False),
-        sa.Column("route_time", sa.DateTime(), nullable=False),
-        sa.Column("distance", sa.Float(), nullable=False),
         sa.ForeignKeyConstraint(
             ["place_id"],
             ["place.id"],

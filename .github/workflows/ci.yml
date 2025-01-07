@@ -76,7 +76,7 @@ jobs:
 
       - name: Run Mypy
         run: |
-          poetry run mypy .
+          poetry run mypy . --show-traceback --verbose
 
       - name: Test python project
         run: |

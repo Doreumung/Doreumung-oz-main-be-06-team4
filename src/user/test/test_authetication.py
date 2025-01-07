@@ -13,17 +13,6 @@ from src.user.services.authentication import (
 )
 
 
-@pytest.fixture(scope="function")
-def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql://user:password@localhost/test_db")
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-
-    yield db
-
-    db.close()
-
-
 @pytest.fixture
 def sample_password() -> str:
     return "securepassword123"

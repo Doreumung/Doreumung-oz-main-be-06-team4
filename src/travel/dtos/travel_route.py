@@ -23,6 +23,7 @@ class ReGenerateTravelRouteResponse(BaseModel):
 
 
 class SaveTravelRouteRequest(BaseModel):
+    title: str
     schedule: ScheduleInfo
     config: TravelRouteConfig
 
@@ -31,21 +32,14 @@ class SaveTravelRouteResponse(BaseModel):
     travel_route_id: int
 
 
-class GetTravelRouteOneRequest(BaseModel):
-    schedule: ScheduleInfo
-    config: TravelRouteConfig
-
-
 class GetTravelRouteOneResponse(BaseModel):
     schedule: ScheduleInfo
     config: TravelRouteConfig
 
 
-class GetTravelRouteListRequest(BaseModel):
-    schedule: ScheduleInfo
-    config: TravelRouteConfig
-
-
 class GetTravelRouteListResponse(BaseModel):
+    travelroute_id: int
+    user_id: str
+    title: str
     schedule: ScheduleInfo
     config: TravelRouteConfig

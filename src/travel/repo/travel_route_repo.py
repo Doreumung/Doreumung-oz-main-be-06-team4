@@ -1,9 +1,10 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.config.database.connection_async import get_async_session
-from src.travel.models.travel_route_place import TravelRoute
+from src.travel.models.travel_route_place import TravelRoute, TravelRoutePlace
 
 
 class TravelRouteRepository:
@@ -34,7 +35,7 @@ class TravelRouteRepository:
         if user_id is None:
             raise HTTPException(status_code=404, detail="user_id is required")
         else:
-            travel = await self.async_session.execute(select(TravelRoute).where(TravelRoute.user_id == user_id))  # type: ignore
+            travel = await self.async_session.execute(select(TravelRoute).options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place)).where(TravelRoute.user_id == user_id))  # type: ignore
         if not travel:
             raise HTTPException(status_code=404, detail="Item not found")
         return list(travel.scalars().all())

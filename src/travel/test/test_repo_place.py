@@ -23,15 +23,13 @@ class TestPlaceRepository:
 
     async def test_save_place_model(self, async_session: AsyncSession) -> None:
         place_repository = PlaceRepository(async_session)
-        place = Place(name="한라산", theme="해변", address="제주시", latitude=123.21314214, longitude=123.21314214)
+        place = Place(name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
         assert new_place.__dict__ == place.__dict__
 
     async def test_update_place_model(self, async_session: AsyncSession) -> None:
         place_repository = PlaceRepository(async_session)
-        place = Place(
-            id=1, name="한라산", theme="해변", address="제주시", latitude=123.21314214, longitude=123.21314214
-        )
+        place = Place(id=1, name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
         place_repository = PlaceRepository(async_session)
         place_update = PlaceUpdate(name="한라산1")
@@ -39,7 +37,7 @@ class TestPlaceRepository:
 
     async def test_delete_place_model(self, async_session: AsyncSession) -> None:
         place_repository = PlaceRepository(async_session)
-        place = Place(name="한라산", theme="해변", address="제주시", latitude=123.21314214, longitude=123.21314214)
+        place = Place(name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
         assert await place_repository.delete(1)
         result = await async_session.get(Place, 1)
@@ -47,7 +45,7 @@ class TestPlaceRepository:
 
     async def test_get_by_theme_and_region(self, async_session: AsyncSession) -> None:
         place_repository = PlaceRepository(async_session)
-        place = Place(name="한라산", theme="해변", address="제주시", latitude=123.21314214, longitude=123.21314214)
+        place = Place(name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
         get_place = place_repository.get_by_theme_and_region(theme="해변", region="제주시")
         assert get_place == get_place
@@ -56,19 +54,19 @@ class TestPlaceRepository:
         place_repository = PlaceRepository(async_session)
         place_list = []
         place_list.append(
-            Place(name="한라산1", theme="자연", address="서귀포시", latitude=123.21314214, longitude=123.21314214)
+            Place(name="한라산1", theme="자연", region="서귀포시", latitude=123.21314214, longitude=123.21314214)
         )
         place_list.append(
-            Place(name="한라산2", theme="해변", address="한경면", latitude=123.21314214, longitude=123.21314214)
+            Place(name="한라산2", theme="해변", region="한경면", latitude=123.21314214, longitude=123.21314214)
         )
         place_list.append(
-            Place(name="한라산3", theme="액티비티", address="한림읍", latitude=123.21314214, longitude=123.21314214)
+            Place(name="한라산3", theme="액티비티", region="한림읍", latitude=123.21314214, longitude=123.21314214)
         )
         place_list.append(
-            Place(name="한라산4", theme="카페", address="애월읍", latitude=123.21314214, longitude=123.21314214)
+            Place(name="한라산4", theme="카페", region="애월읍", latitude=123.21314214, longitude=123.21314214)
         )
         place_list.append(
-            Place(name="한라산5", theme="전시", address="조천읍", latitude=123.21314214, longitude=123.21314214)
+            Place(name="한라산5", theme="전시", region="조천읍", latitude=123.21314214, longitude=123.21314214)
         )
         new_place_list = await place_repository.save_bulk(place_list=place_list)
         place_list = await place_repository.get_place_list()
@@ -76,7 +74,7 @@ class TestPlaceRepository:
 
     async def test_get_by_id(self, async_session: AsyncSession) -> None:
         place_repository = PlaceRepository(async_session)
-        place = Place(name="한라산", theme="해변", address="제주시", latitude=123.21314214, longitude=123.21314214)
+        place = Place(name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
         if new_place.id is not None:
             get_place = await place_repository.get_by_id(new_place.id)

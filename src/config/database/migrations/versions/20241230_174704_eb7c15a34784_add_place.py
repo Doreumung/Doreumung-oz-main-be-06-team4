@@ -27,7 +27,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
-        sa.Column("theme", sa.Enum("해변", "자연", "카페", "전시", "액티비티", name="themeenum"), nullable=False),
+        sa.Column(
+            "theme", sa.Enum("해변", "자연", "카페", "전시", "액티비티", "식당", name="themeenum"), nullable=False
+        ),
         sa.Column(
             "address",
             sa.Enum(

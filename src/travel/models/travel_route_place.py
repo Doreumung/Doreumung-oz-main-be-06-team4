@@ -12,6 +12,7 @@ from src.user.models.models import User
 class TravelRoute(BaseDatetime, table=True):
     __tablename__ = "travelroute"
     id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
     user_id: str = Field(..., foreign_key="users.id")
     regions: list[RegionEnum] = Field(sa_type=JSON)
     themes: list[ThemeEnum] = Field(sa_type=JSON)
@@ -32,7 +33,5 @@ class TravelRoutePlace(BaseDatetime, table=True):
     travel_route_id: int = Field(..., foreign_key="travelroute.id")
     place_id: int = Field(..., foreign_key="place.id")
     priority: int
-    route_time: time
-    distance: float
     travel_route: "TravelRoute" = Relationship(back_populates="travel_route_places")
     place: "Place" = Relationship(back_populates="travel_route_places")  # type: ignore

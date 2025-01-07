@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 
 from src.config import settings
@@ -61,6 +61,7 @@ async def sign_up_handler(
 )
 async def login_handler(
     body: UserLoginRequestBody,
+    response: Response,
     user_repo: UserRepository = Depends(),
 ) -> JWTResponse:
     user = await user_repo.get_user_by_email(email=body.email)  # get도 비동기 처리
@@ -74,9 +75,28 @@ async def login_handler(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    return JWTResponse(
-        access_token=encode_access_token(user_id=user.id), refresh_token=encode_refresh_token(user_id=user.id)
+    access_token = encode_access_token(user_id=user.id)
+    refresh_token = encode_refresh_token(user_id=user.id)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,  # Use True in production (requires HTTPS)
+        samesite="Strict",  # type: ignore
+        max_age=30 * 60,
+        expires=30 * 60,
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,  # Use True in production (requires HTTPS)
+        samesite="Strict",  # type: ignore
+        max_age=30 * 60,
+        expires=30 * 60,
+    )
+
+    return JWTResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post(

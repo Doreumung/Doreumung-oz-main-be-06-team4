@@ -10,119 +10,17 @@ from src.travel.repo.travel_route_repo import TravelRouteRepository
 from src.user.repo.repository import UserRepository
 
 
-async def travel_route_init(user_repository: UserRepository, travel_route_repository: TravelRouteRepository) -> None:
-    user = User(
-        id="1",
-        email="<EMAIL>",
-        password="<PASSWORD>",
-        birthday=datetime.now(),
-        gender="MALE",
-        oauth_id="12",
-        is_superuser=False,
-        social_provider="KAKAO",
-        is_deleted=False,
-        nickname="dwaf",
-    )
-    await user_repository.save(user)
-    user = User(
-        id="2",
-        email="<EMAILd>",
-        password="<PASSWORD>",
-        birthday=datetime.now(),
-        gender="MALE",
-        oauth_id="12",
-        is_superuser=False,
-        social_provider="KAKAO",
-        is_deleted=False,
-        nickname="dwaf",
-    )
-    await user_repository.save(user)
-    travel_route_list = []
-    travel_route_list.append(
-        TravelRoute(
-            id=1,
-            user_id="1",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    travel_route_list.append(
-        TravelRoute(
-            id=2,
-            user_id="1",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    travel_route_list.append(
-        TravelRoute(
-            id=3,
-            user_id="2",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    travel_route_list.append(
-        TravelRoute(
-            id=4,
-            user_id="2",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    travel_route_list.append(
-        TravelRoute(
-            id=5,
-            user_id="2",
-            regions="제주시",
-            themes="자연",
-            breakfast=True,
-            morning=1,
-            lunch=True,
-            afternoon=1,
-            dinner=True,
-        )
-    )
-    await travel_route_repository.save_bulk(travel_route_list=travel_route_list)
-
-
 @pytest.mark.asyncio
 class TestTravelRouteRepository:
-    @pytest.fixture
-    def travel_route_repository(self, async_session: AsyncSession) -> TravelRouteRepository:
-        return TravelRouteRepository(async_session)
-
-    @pytest.fixture
-    def user_repository(self, async_session: AsyncSession) -> UserRepository:
-        return UserRepository(async_session)
 
     async def test_save_travel_route_model(
-        self, user_repository: UserRepository, travel_route_repository: TravelRouteRepository
+        self, travel_route_repository: TravelRouteRepository, user_save_init: tuple[User, User]
     ) -> None:
-        await travel_route_init(user_repository, travel_route_repository)
+        user1, user2 = user_save_init
         travel_route = TravelRoute(
             id=6,
-            user_id="1",
+            title="ddd",
+            user_id=user1.id,
             regions="제주시",
             themes="자연",
             breakfast=True,
@@ -135,30 +33,41 @@ class TestTravelRouteRepository:
         assert new_travel_route.__dict__ == travel_route.__dict__ and new_travel_route.id
 
     async def test_get_travel_route_list(
-        self, user_repository: UserRepository, travel_route_repository: TravelRouteRepository
+        self, travel_route_init: list[TravelRoute], travel_route_repository: TravelRouteRepository
     ) -> None:
-        await travel_route_init(user_repository, travel_route_repository)
-        travel_route_list = await travel_route_repository.get_place_list()
-        assert len(travel_route_list) == 5
+        saved_travel_list = travel_route_init
+        get_travel_list = await travel_route_repository.get_place_list()  # LIMIT 설정
+        assert {t.id for t in saved_travel_list} == {d.id for d in get_travel_list}  # 길이보단 실제 데이터의 id 비교
 
     async def test_get_travel_route_list_by_user(
-        self, user_repository: UserRepository, travel_route_repository: TravelRouteRepository
+        self,
+        user_save_init: tuple[User, User],
+        travel_route_init: list[TravelRoute],
+        user_repository: UserRepository,
+        travel_route_repository: TravelRouteRepository,
     ) -> None:
-        await travel_route_init(user_repository, travel_route_repository)
-        travel_list = await travel_route_repository.get_tarvel_route_list_by_user(user_id="2")
-        assert len(travel_list) == 3
+        user1, user2 = user_save_init
+        saved_travel_list = travel_route_init
+        travel_list = await travel_route_repository.get_tarvel_route_list_by_user(user_id=user1.id)
+        comp_list = [i for i in saved_travel_list if i.user_id == user1.id]
+        assert len(travel_list) == len(comp_list)
 
     async def test_get_by_id(
-        self, user_repository: UserRepository, travel_route_repository: TravelRouteRepository
+        self, travel_route_init: list[TravelRoute], travel_route_repository: TravelRouteRepository
     ) -> None:
-        await travel_route_init(user_repository, travel_route_repository)
-        get_place = await travel_route_repository.get_by_id(2)
-        assert get_place.id == 2
+        comp_id = travel_route_init[0].id
+        if comp_id is None:
+            assert True
+        get_place = await travel_route_repository.get_by_id(comp_id)  # type: ignore
+        assert get_place.id == comp_id
 
     async def test_delete_travel_route_model(
-        self, user_repository: UserRepository, travel_route_repository: TravelRouteRepository
+        self, travel_route_init: list[TravelRoute], travel_route_repository: TravelRouteRepository
     ) -> None:
-        await travel_route_init(user_repository, travel_route_repository)
-        await travel_route_repository.delete(1)
+        saved_travel_list = travel_route_init
+        comp_id = saved_travel_list[0].id
+        if comp_id is None:
+            assert True
+        await travel_route_repository.delete(comp_id)  # type: ignore
         with pytest.raises(HTTPException):
-            await travel_route_repository.get_by_id(1)
+            await travel_route_repository.get_by_id(comp_id)  # type: ignore

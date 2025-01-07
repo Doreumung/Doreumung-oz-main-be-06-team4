@@ -10,17 +10,6 @@ from src.user.models.models import Gender, SocialProvider, User
 from src.user.services.authentication import check_password
 
 
-@pytest.fixture(scope="function")
-def setup_database() -> Generator[Session, None, None]:
-    engine = create_engine("postgresql:///user:password@localhost/test_db")
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-
-    yield db
-
-    db.close()
-
-
 @pytest.fixture
 def user_data() -> Dict[str, Any]:
     return {

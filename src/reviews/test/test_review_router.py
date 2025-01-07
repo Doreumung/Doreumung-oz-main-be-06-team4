@@ -1,18 +1,24 @@
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import List
 
 import pytest
-from sqlalchemy import insert
+from fastapi import UploadFile
+from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.reviews.dtos.request import ReviewRequestBase
 from src.reviews.dtos.response import ReviewResponse
-from src.reviews.models.models import Like, Review
+from src.reviews.models.models import Like, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
     create_review_handler,
+    delete_review_handler,
     get_all_review_handler,
     get_review_handler,
+    update_review_handler,
 )
+from src.reviews.test.conftest import KST
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
@@ -191,3 +197,125 @@ async def test_get_all_review_handler(
     )
     assert response_page_2["page"] == 2
     assert len(response_page_2["reviews"]) == size
+
+
+"""
+# 리뷰 수정 테스트
+"""
+
+
+@pytest.mark.asyncio
+async def test_update_review_handler(
+    async_session: AsyncSession,
+    setup_data: User,
+    setup_travelroute: TravelRoute,
+) -> None:
+    user = setup_data
+    travelroute = setup_travelroute
+    review_id = 1
+    review = Review(
+        id=review_id,
+        user_id=user.id,
+        travelroute_id=travelroute.id,
+        title="Test Review",
+        content="This is a test review content.",
+        rating=4.0,
+        created_at=datetime.now(KST),
+        updated_at=datetime.now(KST),
+    )
+    async_session.add(review)
+    await async_session.commit()
+    review_repo = ReviewRepo(async_session)
+
+    body = ReviewRequestBase(
+        user_id=user.id,
+        travelroute_id=travelroute.id,
+        nickname=user.nickname,
+        title="Update Title",
+        content="Update Content",
+        rating=5.0,
+    )
+    image_urls = ["https://example.com/image1.jpg"]
+    files: List[UploadFile] = []
+
+    response = await update_review_handler(
+        review_id=review_id,
+        body=body,
+        files=files,
+        image_urls=image_urls,
+        review_repo=review_repo,
+        user_id=user.id,
+    )
+    assert response.title == "Update Title"
+    assert response.content == "Update Content"
+    assert response.rating == 5.0
+
+    # 데이터베이스에서 업데이트 된 리뷰 확인
+    updated_review = await async_session.get(Review, review_id)
+    assert updated_review is not None
+    assert updated_review.title == "Update Title"
+    assert updated_review.content == "Update Content"
+    assert updated_review.rating == 5.0
+    assert updated_review.updated_at > updated_review.created_at
+
+    # 이미지 URL 확인
+    images = await async_session.execute(select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == review_id))
+    image_list = images.scalars().all()
+    assert len(image_list) == 1
+    assert image_list[0].filepath == "https://example.com/image1.jpg"
+    assert image_list[0].source_type == "link"
+
+
+"""
+review 삭제 
+"""
+
+
+@pytest.mark.asyncio
+async def test_delete_review_handler(
+    async_session: AsyncSession,
+    setup_data: User,
+    setup_travelroute: TravelRoute,
+) -> None:
+    user = setup_data
+    travelroute = setup_travelroute
+    review_id = 1
+    review = Review(
+        id=review_id,
+        user_id=user.id,
+        travelroute_id=travelroute.id,
+        title="Test Review",
+        content="This is a test review content.",
+        rating=4.0,
+        created_at=datetime.now(KST),
+        updated_at=datetime.now(KST),
+    )
+    async_session.add(review)
+    await async_session.commit()
+
+    image = ReviewImage(id=1, review_id=review_id, source_type="upload", filepath="/tmp/test_image.jpg")
+    async_session.add(image)
+    await async_session.commit()
+
+    # 가상 파일 생성
+    test_file = Path(image.filepath)
+    test_file.touch()
+
+    review_repo = ReviewRepo(async_session)
+
+    # 삭제 요청
+    response = await delete_review_handler(
+        review_id=review_id,
+        review_repo=review_repo,
+        user_id=user.id,
+    )
+
+    assert response["message"] == "Review deleted"
+    # 삭제 확인
+    deleted_review = await async_session.get(Review, review_id)
+    assert deleted_review is None
+    # 이미지 삭제 확인
+    deleted_image = await async_session.get(ReviewImage, image.id)
+    assert deleted_image is None
+    # 파일 삭제 확인
+    assert not test_file.exists()

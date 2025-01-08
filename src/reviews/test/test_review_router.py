@@ -136,6 +136,8 @@ async def test_get_all_review_handler(
 ) -> None:
     user = setup_data
     travelroute = setup_travelroute
+
+    # 리뷰 데이터 생성
     reviews = [
         Review(
             id=i,
@@ -144,24 +146,25 @@ async def test_get_all_review_handler(
             title=f"Review {i}",
             rating=4.5,
             content="This is a test review",
-            like_count=0,
             created_at=datetime.now() - timedelta(minutes=i),
             updated_at=datetime.now(),
         )
         for i in range(1, 16)
     ]
     async_session.add_all(reviews)
-    like = Like(
-        user_id=user.id,
-        review_id=1,
-        created_at=datetime.now(),
-    )
-    async_session.add(like)
 
+    # 좋아요 데이터 생성
+    likes = [Like(user_id=user.id, review_id=i, created_at=datetime.now()) for i in range(1, 6)]
+    async_session.add_all(likes)
+
+    # 사용자 닉네임 설정
     user.nickname = "test_nickname"
     async_session.add(user)
 
+    # 커밋
     await async_session.commit()
+
+    # 레포지토리 인스턴스 생성
     review_repo = ReviewRepo(async_session)
 
     # 테스트 파라미터 설정
@@ -170,40 +173,54 @@ async def test_get_all_review_handler(
     order_by = "created_at"
     order = "desc"
 
+    # 첫 번째 페이지 테스트
     response = await get_all_review_handler(
         page=page,
         size=size,
         order_by=order_by,
         order=order,
-        user_id=user.id,
-        travelroute_id=travelroute.id,
         review_repo=review_repo,
     )
-    # 결과
+
+    # 응답 데이터 검증
     assert response["page"] == page
     assert response["size"] == size
     assert response["total_pages"] == 3
     assert len(response["reviews"]) == size
 
-    # 좋아요 확인
-    assert response["reviews"][0]["id"] == 1
-    assert response["reviews"][0]["liked_by_user"] is True
+    # 첫 번째 리뷰 데이터 검증
+    assert response["reviews"][0]["title"] == "Review 1"
+    assert response["reviews"][0]["nickname"] == "test_nickname"
+    assert "created_at" in response["reviews"][0]
+    assert response["reviews"][0]["like_count"] == 1  # 첫 리뷰 좋아요 수
 
-    # 정렬
-    assert response["reviews"][0]["created_at"] > response["reviews"][1]["created_at"]
+    # 정렬 검증 (내림차순 created_at)
+    created_times = [datetime.fromisoformat(r["created_at"]) for r in response["reviews"]]
+    assert all(created_times[i] >= created_times[i + 1] for i in range(len(created_times) - 1))
 
-    # 페이지네이션 추가 테스트
+    # 페이지네이션 추가 테스트 (2페이지)
     response_page_2 = await get_all_review_handler(
         page=2,
         size=size,
         order_by=order_by,
         order=order,
-        user_id=user.id,
-        travelroute_id=travelroute.id,
         review_repo=review_repo,
     )
     assert response_page_2["page"] == 2
     assert len(response_page_2["reviews"]) == size
+    assert response_page_2["reviews"][0]["title"] == "Review 6"
+
+    # 마지막 페이지 테스트
+    response_page_3 = await get_all_review_handler(
+        page=3,
+        size=size,
+        order_by=order_by,
+        order=order,
+        review_repo=review_repo,
+    )
+    assert response_page_3["page"] == 3
+    assert len(response_page_3["reviews"]) == 5
+    assert response_page_3["reviews"][0]["title"] == "Review 11"
 
 
 """

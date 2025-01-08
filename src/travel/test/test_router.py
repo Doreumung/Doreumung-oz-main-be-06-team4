@@ -95,7 +95,7 @@ class TestRouter:
             return user_save_init[0].id
 
         app.dependency_overrides[authenticate] = mock_authenticate
-        response = await client.get("/api/v1/travelroute")
+        response = await client.get("/api/v1/travelroute?page=1&&size=3")
         assert response.status_code == 200
 
     # async def test_get_one_travel_route(

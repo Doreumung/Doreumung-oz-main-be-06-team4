@@ -10,6 +10,7 @@ from src.travel.dtos.base_travel_route import (
 from src.travel.dtos.travel_route import (
     GenerateTravelRouteRequest,
     GenerateTravelRouteResponse,
+    GetTravelRouteListPaginationResponse,
     GetTravelRouteListResponse,
     GetTravelRouteOneResponse,
     ReGenerateTravelRouteRequest,
@@ -173,15 +174,20 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
     )
 
 
-@router.get("", response_model=list[GetTravelRouteListResponse])
+@router.get("", response_model=GetTravelRouteListPaginationResponse)
 async def get_travel_routes(
-    user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
-) -> list[GetTravelRouteListResponse]:
+    page: int, size: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
+) -> GetTravelRouteListPaginationResponse:
     travel_route_list = await travel_route_repo.get_tarvel_route_list_by_user(user_id)
     response_list = []
     for travel_route in travel_route_list:
         response_list.append(await generate_dto(travel_route=travel_route, user_id=user_id))
-    return response_list
+    total_travelroutes = len(response_list)
+    total_pages = (total_travelroutes - 1) // size + 1
+    response_list = response_list[size * (page - 1) : size * page]  # 나중에 query시 LIMIT 적용으로 바꾸기
+    return GetTravelRouteListPaginationResponse(
+        page=page, size=size, total_pages=total_pages, total_travelroutes=total_travelroutes, travel_list=response_list
+    )
 
 
 @router.get("/{id}", response_model=GetTravelRouteListResponse)

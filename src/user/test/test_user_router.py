@@ -1,18 +1,13 @@
 import asyncio
+import time
 from datetime import datetime
-from typing import AsyncGenerator, Generator
 
 import bcrypt
 import pytest
-import pytest_asyncio
-from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from src.config.database.connection_async import get_async_session
-from src.config.orm import Base
-from src.main import app
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
 from src.user.services.authentication import (
@@ -21,13 +16,6 @@ from src.user.services.authentication import (
     encode_access_token,
     encode_refresh_token,
 )
-
-
-@pytest_asyncio.fixture
-async def client() -> AsyncClient:  # type: ignore
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        yield client
 
 
 # 회원가입
@@ -64,9 +52,32 @@ async def test_sign_up_service(async_session: AsyncSession) -> None:
     assert bcrypt.checkpw(signup_data["password"].encode(), user.password.encode())
 
 
+# # 회원가입
+# @pytest.mark.asyncio
+# async def test_sign_up(async_session: AsyncSession, client:AsyncClient) -> None:
+#     # 회원가입 데이터
+#     signup_data = {
+#         "email": "test@example.com",
+#         "password": "password123",
+#         "nickname": "tester",
+#         "gender": "male",
+#         "birthday": "1990-01-01",
+#     }
+#     response = await client.post("/api/v1/user/signup", json=signup_data)
+#
+#     assert response.status_code == 201
+#     assert response.json()["email"] == signup_data["email"]
+#     # DB에서 확인
+#     db_user = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
+#     user = db_user.unique().scalar_one_or_none()
+#     assert user is not None
+#     assert user.email == signup_data["email"]
+#
+
+
 # 로그인
 @pytest.mark.asyncio
-async def test_login_without_http_request(async_session: AsyncSession) -> None:
+async def test_login_without_http_request(async_session: AsyncSession, client: AsyncClient) -> None:
     # 사용자 생성
     hashed_password = bcrypt.hashpw("password".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     user = User(
@@ -137,7 +148,7 @@ async def test_logout_handler(async_session: AsyncSession, client: AsyncClient) 
 
 # 회원 정보 조회
 @pytest.mark.asyncio
-async def test_get_user_info(async_session: AsyncSession) -> None:
+async def test_get_user_info(async_session: AsyncSession, client: AsyncClient) -> None:
 
     # 사용자 생성
     hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -175,7 +186,7 @@ async def test_get_user_info(async_session: AsyncSession) -> None:
 
 # 회원 정보 업데이트
 @pytest.mark.asyncio
-async def test_update_user_info(async_session: AsyncSession) -> None:
+async def test_update_user_info(async_session: AsyncSession, client: AsyncClient) -> None:
     # 사용자 생성
     hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()
@@ -204,7 +215,7 @@ async def test_update_user_info(async_session: AsyncSession) -> None:
 
 # 계정 삭제
 @pytest.mark.asyncio
-async def test_delete_user_handler(async_session: AsyncSession) -> None:
+async def test_delete_user_handler(async_session: AsyncSession, client: AsyncClient) -> None:
     # 유저 생성
     hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     parsed_birthday = datetime.strptime("1990-01-01", "%Y-%m-%d").date()

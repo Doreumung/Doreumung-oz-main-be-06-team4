@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -48,25 +49,25 @@ async def test_create_review_handler(
         "nickname": "test_user",
         "images": [],
     }
-    body = ReviewRequestBase(**body_data)
+    body = json.dumps(body_data)
 
     # 이미지 URL 데이터 준비
     image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
 
     # 핸들러 호출
     result = await create_review_handler(
-        body=body,
+        body=str(body),
         files=None,
         image_urls=image_urls,
         review_repo=review_repo,
     )
 
     # 결과 검증
-    assert result.user_id == body.user_id
-    assert result.travelroute_id == body.travelroute_id
-    assert result.title == body.title
-    assert result.rating == body.rating
-    assert result.content == body.content
+    assert result.user_id == body_data["user_id"]
+    assert result.travelroute_id == body_data["travelroute_id"]
+    assert result.title == body_data["title"]
+    assert result.rating == body_data["rating"]
+    assert result.content == body_data["content"]
 
     # 이미지 URL 검증
     assert len(result.images) == len(image_urls)
@@ -78,7 +79,18 @@ async def test_create_review_handler(
     # 데이터베이스에서 리뷰 확인
     saved_review = await async_session.get(Review, result.id)
     assert saved_review is not None
-    assert saved_review.title == body.title
+    assert saved_review.title == body_data["title"]
+    assert saved_review.content == body_data["content"]
+
+    # 데이터베이스에서 이미지 확인
+    saved_images_query = await async_session.execute(
+        select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == result.id)
+    )
+    saved_images = saved_images_query.scalars().all()
+    assert len(saved_images) == len(image_urls)
+    for i, saved_image in enumerate(saved_images):
+        assert saved_image.filepath == image_urls[i]
+        assert saved_image.source_type == "link"
 
 
 """

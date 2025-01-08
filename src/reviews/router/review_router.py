@@ -1,10 +1,20 @@
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import Integer, String, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
@@ -41,19 +51,33 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review_handler(
-    body: ReviewRequestBase,
+    body: str = Body(...),
     files: Optional[List[UploadFile]] = File(None),
     image_urls: Optional[List[str]] = None,
     review_repo: ReviewRepo = Depends(),
 ) -> ReviewResponse:
-    logging.info(f"Received body: {body}")
+    try:
+        body_dict = json.loads(body)
+        review_request = ReviewRequestBase(**body_dict)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON format",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    logging.info(f"Received body: {review_request}")
+
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=body.user_id,
-        travelroute_id=body.travelroute_id,
-        title=body.title,
-        rating=body.rating,
-        content=body.content,
+        user_id=review_request.user_id,
+        travelroute_id=review_request.travelroute_id,
+        title=review_request.title,
+        rating=review_request.rating,
+        content=review_request.content,
     )
 
     # 리뷰 저장
@@ -99,7 +123,7 @@ async def create_review_handler(
 
     return ReviewResponse(
         id=saved_review.id,
-        nickname=body.nickname,
+        nickname=review_request.nickname,
         user_id=saved_review.user_id,
         travelroute_id=saved_review.travelroute_id,
         title=saved_review.title,

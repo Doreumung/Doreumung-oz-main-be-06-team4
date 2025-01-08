@@ -1,10 +1,21 @@
+import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import Integer, and_, cast, func
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from sqlalchemy import Integer, String, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
@@ -40,19 +51,33 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review_handler(
-    body: ReviewRequestBase,
+    body: str = Body(...),
     files: Optional[List[UploadFile]] = File(None),
     image_urls: Optional[List[str]] = None,
     review_repo: ReviewRepo = Depends(),
 ) -> ReviewResponse:
+    try:
+        body_dict = json.loads(body)
+        review_request = ReviewRequestBase(**body_dict)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON format",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    logging.info(f"Received body: {review_request}")
 
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=body.user_id,
-        travelroute_id=body.travelroute_id,
-        title=body.title,
-        rating=body.rating,
-        content=body.content,
+        user_id=review_request.user_id,
+        travelroute_id=review_request.travelroute_id,
+        title=review_request.title,
+        rating=review_request.rating,
+        content=review_request.content,
     )
 
     # 리뷰 저장
@@ -86,6 +111,7 @@ async def create_review_handler(
                     image_responses.append(
                         ReviewImageResponse(
                             id=new_image.id,
+                            review_id=saved_review.id,
                             filepath=new_image.filepath,
                             source_type=new_image.source_type,
                         )
@@ -97,7 +123,7 @@ async def create_review_handler(
 
     return ReviewResponse(
         id=saved_review.id,
-        nickname=body.nickname,
+        nickname=review_request.nickname,
         user_id=saved_review.user_id,
         travelroute_id=saved_review.travelroute_id,
         title=saved_review.title,
@@ -160,29 +186,37 @@ async def get_review_handler(
 async def get_all_review_handler(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    order_by: str = Query("created_at"),
-    order: str = Query("desc"),
-    user_id: str = Depends(authenticate),
-    travelroute_id: Optional[int] = None,
+    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, likes)"),
+    order: str = Query("desc", description="정렬 방향 (asc or desc)"),
     review_repo: ReviewRepo = Depends(),
 ) -> Dict[str, Any]:
-    query = select(Review)
+    # 리뷰와 좋아요 개수 계산 서브 쿼리
+    like_count_subquery = (
+        select(cast(Review.id, Integer), func.count("*").label("like_count"))
+        .outerjoin(Like, cast(Review.id, Integer) == Like.review_id)
+        .group_by(cast(Review.id, Integer))
+        .subquery()
+    )
 
-    # 조건 필터링
-    conditions = []  # 조건을 저장할 리스트
-
-    if user_id:  # user_id가 None이 아니고 유효한 경우
-        conditions.append(Review.user_id == user_id)
-
-    if travelroute_id:  # travelroute_id가 None이 아니고 유효한 경우
-        conditions.append(Review.travelroute_id == travelroute_id)
-
-    # 조건을 쿼리에 적용
-    if conditions:  # 조건이 하나 이상 있을 경우에만 where 절 추가
-        query = query.where(and_(*conditions))  # type: ignore
+    # 리뷰와 좋아요 개수를 조인
+    query = (
+        select(
+            Review.title.label("title"),  # type: ignore
+            User.nickname.label("nickname"),  # type: ignore
+            Review.created_at.label("created_at"),  # type: ignore
+            like_count_subquery.c.like_count.label("like_count"),
+        )
+        .join(User, User.id == Review.user_id)  # type: ignore
+        .join(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
+    )
 
     # 정렬 컬럼 및 방향 설정
-    order_column = validate_order_by(order_by, VALID_ORDER_BY_COLUMNS)
+    valid_order_by_columns = ["created_at", "title", "like_count"]
+    if order_by == "likes":
+        order_column = like_count_subquery.c.like_count
+    else:
+        order_column = validate_order_by(order_by, set(valid_order_by_columns))
+
     if order.lower() == "asc":
         query = query.order_by(order_column.asc())
     else:
@@ -196,30 +230,24 @@ async def get_all_review_handler(
     offset = (page - 1) * size
     paginated_query = query.offset(offset).limit(size)
     result = await review_repo.session.execute(paginated_query)
-    reviews = result.unique().scalars().all()
+    reviews = result.unique().mappings().all()
 
-    # 좋아요 여부 확인
-    liked_reviews_query = await review_repo.session.execute(
-        select(Like.review_id).where(Like.user_id == user_id)  # type: ignore
-    )
-    liked_reviews = {like for like in liked_reviews_query.scalars().all()}
-
-    # 닉네임
-    uesr_query = await review_repo.session.execute(select(User.nickname).where(User.id == user_id))  # type: ignore
-    nickname = uesr_query.unique().scalar_one_or_none()
+    # 리뷰 데이터 구성
+    review_data = [
+        {
+            "title": review.title,
+            "nickname": review.nickname,
+            "created_at": review.created_at.isoformat(),
+            "like_count": review.like_count,
+        }
+        for review in reviews
+    ]
 
     return {
         "page": page,
         "size": size,
         "total_pages": (total_reviews + size - 1) // size,
-        "reviews": [
-            ReviewResponse(
-                **review.__dict__,  # ORM 객체를 딕셔너리로 변환
-                nickname=str(nickname),
-                liked_by_user=review.id in liked_reviews,
-            ).model_dump()
-            for review in reviews
-        ],
+        "reviews": review_data,
     }
 
 
@@ -246,7 +274,7 @@ async def update_review_handler(
         raise ValueError("review_id must be an integer")
     query = (
         select(Review, User.nickname)  # type: ignore
-        .join(User, User.id == Review.user_id)
+        .join(User, cast(User.id, String) == Review.user_id)
         .where(cast(Review.id, Integer) == review_id)
     )
 

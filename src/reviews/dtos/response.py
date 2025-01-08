@@ -33,7 +33,6 @@ class ReviewResponse(BaseModel):
     liked_by_user: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
-    images: list[ReviewImageResponse]
 
     class Config:
         from_attributes = True

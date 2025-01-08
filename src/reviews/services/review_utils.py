@@ -1,11 +1,11 @@
 import shutil
 from pathlib import Path
-from typing import Any, List, Set
+from typing import Any, List, Optional, Set
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 
-from src.reviews.models.models import Review, ReviewImage
+from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 
 # 업로드 디렉토리 설정
@@ -73,3 +73,32 @@ async def handle_image_urls(image_urls: List[str], review_id: int, review_repo: 
                 source_type="LINK",  # 적절한 source_type 값 설정
             )
             await review_repo.save_image(new_image)
+
+
+def validate_review_image(filepath: Optional[str], source_type: Optional[ImageSourceType]) -> None:
+    if filepath is None and source_type is None:
+        # 둘 다 비어 있는 경우 허용 (이미지 없이 리뷰 작성)
+        return
+    if filepath is None or source_type is None:
+        # 하나만 비어 있는 경우 예외 발생
+        raise ValueError("Both 'filepath' and 'source_type' must be provided together.")
+
+
+async def save_review_image(
+    review_id: int,
+    filepath: Optional[str],
+    source_type: Optional[ImageSourceType],
+    review_repo: ReviewRepo,
+) -> Optional[ReviewImage]:
+    # 유효성 검사
+    validate_review_image(filepath, source_type)
+
+    # 유효한 경우에만 저장
+    new_image = ReviewImage(
+        review_id=review_id,
+        filepath=filepath,
+        source_type=source_type,
+    )
+    saved_image = await review_repo.save_image(new_image)
+
+    return saved_image

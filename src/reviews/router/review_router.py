@@ -21,12 +21,13 @@ from sqlalchemy.sql import select
 
 from src.reviews.dtos.request import ReviewRequestBase
 from src.reviews.dtos.response import ReviewImageResponse, ReviewResponse
-from src.reviews.models.models import Like, Review, ReviewImage
+from src.reviews.models.models import ImageSourceType, Like, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.services.review_utils import (
     handle_file_upload,
     handle_image_urls,
     validate_order_by,
+    validate_review_image,
 )
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
@@ -93,17 +94,20 @@ async def create_review_handler(
         try:
             await handle_file_upload(files, saved_review.id, review_repo)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"File upload failed: {e}")
+            logging.error(f"File upload failed: {e}")
 
     # URL 이미지 처리
     if image_urls:
         try:
             for url in image_urls:
+                # 유효성 검사
+                validate_review_image(filepath=url, source_type=ImageSourceType.LINK)
+                # 이미지 저장
                 new_image = await review_repo.save_image(
                     ReviewImage(
                         review_id=saved_review.id,
                         filepath=url,
-                        source_type="LINK",
+                        source_type=ImageSourceType.LINK,
                     )
                 )
                 # ReviewImageResponse 객체로 변환하여 추가
@@ -119,7 +123,7 @@ async def create_review_handler(
                 else:
                     pass
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Image URL handling failed: {e}")
+            logging.error(f"Image URL handling failed: {e}")
 
     return ReviewResponse(
         id=saved_review.id,

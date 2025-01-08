@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -14,6 +14,11 @@ class ReviewImageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UploadImageResponse(BaseModel):
+    uploaded_image: ReviewImageResponse
+    all_images: List[ReviewImageResponse]
 
 
 class ReviewResponse(BaseModel):

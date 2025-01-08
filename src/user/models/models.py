@@ -29,7 +29,7 @@ class User(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, sa_type=String(36))  # type: ignore
     email: str = Field(sa_type=String(50), unique=True, nullable=False, index=True)  # type: ignore
     password: str = Field(sa_type=String(255), nullable=False)  # type: ignore
-    nickname: str = Field(sa_type=String(30), nullable=False)  # type: ignore
+    nickname: Optional[str] = Field(sa_type=String(30), nullable=False)  # type: ignore
     birthday: Optional[date] = Field(sa_type=Date, nullable=True)
     gender: Optional[Gender] = Field(sa_type=SqlEnum(Gender), nullable=True)  # type: ignore
     oauth_id: Optional[str] = Field(sa_type=String(100), nullable=True)  # type: ignore

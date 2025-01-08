@@ -47,7 +47,6 @@ async def test_create_review_handler(
         "rating": 5.0,
         "content": "This is a test review content.",
         "nickname": "test_user",
-        "images": [],
     }
     body = json.dumps(body_data)
 
@@ -91,6 +90,37 @@ async def test_create_review_handler(
     for i, saved_image in enumerate(saved_images):
         assert saved_image.filepath == image_urls[i]
         assert saved_image.source_type == "link"
+
+    #  이미지 없이 리뷰 생성
+    result_without_images = await create_review_handler(
+        body=str(body),
+        files=None,
+        image_urls=None,  # 이미지 URL 없음
+        review_repo=review_repo,
+    )
+
+    # 결과 검증 (이미지 없음)
+    assert result_without_images.user_id == body_data["user_id"]
+    assert result_without_images.travelroute_id == body_data["travelroute_id"]
+    assert result_without_images.title == body_data["title"]
+    assert result_without_images.rating == body_data["rating"]
+    assert result_without_images.content == body_data["content"]
+
+    # 이미지가 없는지 확인
+    assert len(result_without_images.images) == 0
+
+    # 데이터베이스에서 리뷰 확인
+    saved_review_without_images = await async_session.get(Review, result_without_images.id)
+    assert saved_review_without_images is not None
+    assert saved_review_without_images.title == body_data["title"]
+    assert saved_review_without_images.content == body_data["content"]
+
+    # 이미지가 없는지 데이터베이스에서 확인
+    saved_images_query_without_images = await async_session.execute(
+        select(ReviewImage).where(ReviewImage.review_id == result_without_images.id)  # type: ignore
+    )
+    saved_images_without_images = saved_images_query_without_images.scalars().all()
+    assert len(saved_images_without_images) == 0
 
 
 """

@@ -19,9 +19,9 @@ class ImageSourceType(StrEnum):
 class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
     id: int = Field(default=None, primary_key=True)
-    review_id: int = Field(foreign_key="reviews.id", nullable=False)
-    filepath: str = Field(max_length=255, nullable=False)  # 이미지 파일 경로나 URL
-    source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=False)  # type: ignore # 이미지 출처 (업로드/링크)
+    review_id: int = Field(foreign_key="reviews.id", nullable=True)
+    filepath: str = Field(max_length=255, nullable=True)  # 이미지 파일 경로나 URL
+    source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=True)  # type: ignore # 이미지 출처 (업로드/링크)
 
     # 부모 관계
     review: Optional["Review"] = Relationship(back_populates="images")

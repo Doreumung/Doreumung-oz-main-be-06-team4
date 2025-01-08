@@ -10,6 +10,7 @@ from fastapi import (
     Body,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     UploadFile,
@@ -52,82 +53,32 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review_handler(
-    body: str = Body(...),
-    files: Optional[List[UploadFile]] = File(None),
-    image_urls: Optional[List[str]] = None,
-    review_repo: ReviewRepo = Depends(),
+    body: ReviewRequestBase = Body(...),  # 리뷰 본문 처리
+    review_repo: ReviewRepo = Depends(),  # 의존성 주입
 ) -> ReviewResponse:
-    try:
-        body_dict = json.loads(body)
-        review_request = ReviewRequestBase(**body_dict)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON format",
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    logging.info(f"Received body: {review_request}")
+    # 요청 바디 로깅
+    logging.info(f"Received request body: {body}")
 
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=review_request.user_id,
-        travelroute_id=review_request.travelroute_id,
-        title=review_request.title,
-        rating=review_request.rating,
-        content=review_request.content,
+        user_id=body.user_id,
+        travelroute_id=body.travelroute_id,
+        title=body.title,
+        rating=body.rating,
+        content=body.content,
     )
+    logging.info(f"Created Review object: {new_review}")
 
     # 리뷰 저장
     saved_review = await review_repo.save_review(new_review)
     if not saved_review or not saved_review.id:
-        raise HTTPException(status_code=500, detail="Failed to save review or review ID is None")
+        raise HTTPException(status_code=500, detail="Failed to save review")
+    logging.info(f"Saved Review: {saved_review}")
 
-    # 이미지 응답 리스트 초기화
-    image_responses = []
-
-    # 파일 업로드 처리
-    if files:
-        try:
-            await handle_file_upload(files, saved_review.id, review_repo)
-        except Exception as e:
-            logging.error(f"File upload failed: {e}")
-
-    # URL 이미지 처리
-    if image_urls:
-        try:
-            for url in image_urls:
-                # 유효성 검사
-                validate_review_image(filepath=url, source_type=ImageSourceType.LINK)
-                # 이미지 저장
-                new_image = await review_repo.save_image(
-                    ReviewImage(
-                        review_id=saved_review.id,
-                        filepath=url,
-                        source_type=ImageSourceType.LINK,
-                    )
-                )
-                # ReviewImageResponse 객체로 변환하여 추가
-                if new_image is not None:
-                    image_responses.append(
-                        ReviewImageResponse(
-                            id=new_image.id,
-                            review_id=saved_review.id,
-                            filepath=new_image.filepath,
-                            source_type=new_image.source_type,
-                        )
-                    )
-                else:
-                    pass
-        except Exception as e:
-            logging.error(f"Image URL handling failed: {e}")
-
-    return ReviewResponse(
+    # 최종 응답 생성
+    response = ReviewResponse(
         id=saved_review.id,
-        nickname=review_request.nickname,
+        nickname=body.nickname,
         user_id=saved_review.user_id,
         travelroute_id=saved_review.travelroute_id,
         title=saved_review.title,
@@ -137,8 +88,98 @@ async def create_review_handler(
         liked_by_user=False,
         created_at=saved_review.created_at,
         updated_at=saved_review.updated_at,
-        images=image_responses,
     )
+    logging.info(f"Final Response: {response}")
+    return response
+
+
+# @review_router.post(
+#     "/reviews",
+#     response_model=ReviewResponse,
+#     status_code=status.HTTP_201_CREATED,
+# )
+# async def create_review_handler(
+#     body: ReviewRequestBase = Form(...),
+#     files: Optional[List[UploadFile]] = File(None),
+#     image_urls: Optional[List[str]] = Form(None),
+#     review_repo: ReviewRepo = Depends(),
+# ) -> ReviewResponse:
+#     # 요청 바디 로깅
+#     logging.info(f"Raw body received: {body}")
+#     logging.info(f"Received request body: {body}")
+#     logging.info(f"Received files: {files}")
+#     logging.info(f"Received image_urls: {image_urls}")
+#     # 새로운 리뷰 객체 생성
+#     new_review = Review(
+#         user_id=body.user_id,
+#         travelroute_id=body.travelroute_id,
+#         title=body.title,
+#         rating=body.rating,
+#         content=body.content,
+#     )
+#     logging.info(f"Created Review object: {new_review}")
+#
+#     # 리뷰 저장
+#     saved_review = await review_repo.save_review(new_review)
+#     if not saved_review or not saved_review.id:
+#         raise HTTPException(status_code=500, detail="Failed to save review or review ID is None")
+#     logging.info(f"Saved Review: {saved_review}")
+#
+#     # 이미지 응답 리스트 초기화
+#     image_responses = []
+#
+#     # 파일 업로드 처리
+#     if files:
+#         try:
+#             logging.info(f"Files to upload: {[file.filename for file in files]}")
+#             await handle_file_upload(files, saved_review.id, review_repo)
+#             logging.info(f"File upload successful for review ID: {saved_review.id}")
+#         except Exception as e:
+#             logging.error(f"File upload failed: {e}")
+#
+#     # URL 이미지 처리
+#     if image_urls:
+#         try:
+#             logging.info(f"Image URLs to process: {image_urls}")
+#             for url in image_urls:
+#                 validate_review_image(filepath=url, source_type=ImageSourceType.LINK)
+#                 new_image = await review_repo.save_image(
+#                     ReviewImage(
+#                         review_id=saved_review.id,
+#                         filepath=url,
+#                         source_type=ImageSourceType.LINK,
+#                     )
+#                 )
+#                 if new_image:
+#                     image_response = ReviewImageResponse(
+#                         id=new_image.id,
+#                         review_id=saved_review.id,
+#                         filepath=new_image.filepath,
+#                         source_type=new_image.source_type,
+#                     )
+#                     image_responses.append(image_response)
+#                     logging.info(f"Saved Image: {image_response}")
+#         except Exception as e:
+#             logging.error(f"Image URL handling failed: {e}")
+#
+#     # 반환값 로깅
+#     response = ReviewResponse(
+#         id=saved_review.id,
+#         nickname=body.nickname,
+#         user_id=saved_review.user_id,
+#         travelroute_id=saved_review.travelroute_id,
+#         title=saved_review.title,
+#         rating=saved_review.rating,
+#         content=saved_review.content,
+#         like_count=saved_review.like_count or 0,
+#         liked_by_user=False,
+#         created_at=saved_review.created_at,
+#         updated_at=saved_review.updated_at,
+#         images=image_responses,
+#     )
+#     logging.info(f"Final Response: {response}")
+#
+#     return response
 
 
 """

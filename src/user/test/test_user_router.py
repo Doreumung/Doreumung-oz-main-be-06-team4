@@ -17,44 +17,9 @@ from src.user.services.authentication import (
     encode_refresh_token,
 )
 
-
-# 회원가입
-@pytest.mark.asyncio
-async def test_sign_up_service(async_session: AsyncSession) -> None:
-    # 회원가입 데이터
-    signup_data = {
-        "email": "test@example.com",
-        "password": "password123",
-        "nickname": "tester",
-        "gender": "male",
-        "birthday": "1990-01-01",
-    }
-
-    # UserRepository를 사용하여 사용자 생성
-    user_repo = UserRepository(async_session)
-    hashed_password = bcrypt.hashpw(signup_data["password"].encode(), bcrypt.gensalt()).decode()
-    new_user = User(
-        email=signup_data["email"],
-        password=hashed_password,
-        nickname=signup_data["nickname"],
-        gender=signup_data["gender"],
-        birthday=datetime.strptime(signup_data["birthday"], "%Y-%m-%d").date(),
-    )
-    await user_repo.save(user=new_user)
-
-    # 데이터베이스에서 확인
-    result = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
-    user = result.unique().scalar_one_or_none()
-
-    # 검증
-    assert user is not None
-    assert user.email == signup_data["email"]
-    assert bcrypt.checkpw(signup_data["password"].encode(), user.password.encode())
-
-
 # # 회원가입
 # @pytest.mark.asyncio
-# async def test_sign_up(async_session: AsyncSession, client:AsyncClient) -> None:
+# async def test_sign_up_service(async_session: AsyncSession) -> None:
 #     # 회원가입 데이터
 #     signup_data = {
 #         "email": "test@example.com",
@@ -63,16 +28,49 @@ async def test_sign_up_service(async_session: AsyncSession) -> None:
 #         "gender": "male",
 #         "birthday": "1990-01-01",
 #     }
-#     response = await client.post("/api/v1/user/signup", json=signup_data)
 #
-#     assert response.status_code == 201
-#     assert response.json()["email"] == signup_data["email"]
-#     # DB에서 확인
-#     db_user = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
-#     user = db_user.unique().scalar_one_or_none()
+#     # UserRepository를 사용하여 사용자 생성
+#     user_repo = UserRepository(async_session)
+#     hashed_password = bcrypt.hashpw(signup_data["password"].encode(), bcrypt.gensalt()).decode()
+#     new_user = User(
+#         email=signup_data["email"],
+#         password=hashed_password,
+#         nickname=signup_data["nickname"],
+#         gender=signup_data["gender"],
+#         birthday=datetime.strptime(signup_data["birthday"], "%Y-%m-%d").date(),
+#     )
+#     await user_repo.save(user=new_user)
+#
+#     # 데이터베이스에서 확인
+#     result = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
+#     user = result.unique().scalar_one_or_none()
+#
+#     # 검증
 #     assert user is not None
 #     assert user.email == signup_data["email"]
-#
+#     assert bcrypt.checkpw(signup_data["password"].encode(), user.password.encode())
+
+
+# 회원가입
+@pytest.mark.asyncio
+async def test_sign_up(async_session: AsyncSession, client: AsyncClient) -> None:
+    # 회원가입 데이터
+    signup_data = {
+        "email": "test@example.com",
+        "password": "password123",
+        "nickname": "tester",
+        "gender": "male",
+        "birthday": "1990-01-01",
+    }
+    response = await client.post("/api/v1/user/signup", json=signup_data)
+
+    assert response.status_code == 201
+    assert response.json()["email"] == signup_data["email"]
+    # DB에서 확인
+    db_user = await async_session.execute(select(User).where(User.email == signup_data["email"]))  # type: ignore
+    user = db_user.unique().scalar_one_or_none()
+    assert user is not None
+    assert user.email == signup_data["email"]
 
 
 # 로그인

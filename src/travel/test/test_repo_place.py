@@ -47,7 +47,7 @@ class TestPlaceRepository:
         place_repository = PlaceRepository(async_session)
         place = Place(name="한라산", theme="해변", region="제주시", latitude=123.21314214, longitude=123.21314214)
         new_place = await place_repository.save(place)
-        get_place = place_repository.get_by_theme_and_region(theme="해변", region="제주시")
+        get_place = await place_repository.get_by_theme_and_region(theme="해변", region="제주시")
         assert get_place == get_place
 
     async def test_get_place_list(self, async_session: AsyncSession) -> None:

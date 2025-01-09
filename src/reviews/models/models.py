@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy import UniqueConstraint, func
+from sqlalchemy import Text, UniqueConstraint, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
     id: int = Field(default=None, primary_key=True)
     review_id: int = Field(foreign_key="reviews.id", nullable=True)
-    filepath: str = Field(max_length=255, nullable=True)  # 이미지 파일 경로나 URL
+    filepath: str = Field(sa_column=Column(Text, nullable=True))
     source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=True)  # type: ignore # 이미지 출처 (업로드/링크)
 
     # 부모 관계
@@ -39,11 +39,12 @@ class Review(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id", nullable=False)
-    travelroute_id: int = Field(foreign_key="travelroute.id", nullable=False)
+    travel_route_id: int = Field(foreign_key="travelroute.id", nullable=False)
     title: str = Field(max_length=255, nullable=False)
     rating: float = Field(nullable=False)  # 범위 제약은 애플리케이션 레벨에서 처리
-    content: str = Field(nullable=False)
+    content: str = Field(default=None, sa_column=Column(Text, nullable=False))  # Pydantic 기본값
     like_count: int = Field(default=0, nullable=True)
+    thumbnail: Optional[str] = Field(nullable=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(KST),
         nullable=False,

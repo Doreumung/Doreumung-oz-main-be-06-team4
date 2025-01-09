@@ -20,7 +20,7 @@ def sample_review(setup_data: User, setup_travelroute: TravelRoute) -> list[Revi
     review1 = Review(
         id=1,
         user_id=setup_data.id,
-        travelroute_id=setup_travelroute.id,
+        travel_route_id=setup_travelroute.id,
         title="Test Review1",
         rating=4.5,
         content="This is the first test review",
@@ -30,7 +30,7 @@ def sample_review(setup_data: User, setup_travelroute: TravelRoute) -> list[Revi
     review2 = Review(
         id=2,
         user_id=setup_data.id,
-        travelroute_id=setup_travelroute.id,
+        travel_route_id=setup_travelroute.id,
         title="Test Review2",
         rating=4.0,
         content="This is the second test review",
@@ -284,3 +284,6 @@ async def test_delete_comment(async_session: AsyncSession, sample_review: list[R
 
     deleted_comment = await repo.get_comment_by_id(comment_data.id)
     assert deleted_comment is None
+
+
+#

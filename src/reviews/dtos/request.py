@@ -9,6 +9,7 @@ class ReviewRequestBase(BaseModel):
     rating: float
     content: str
     images: Optional[List[str]] = None
+    thumbnail: Optional[str] = None
 
     class Config:
         from_attributes = True

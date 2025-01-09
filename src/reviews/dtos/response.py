@@ -34,6 +34,7 @@ class ReviewResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     images: List[ReviewImageResponse]
+    thumbnail: Optional[str]
 
     class Config:
         from_attributes = True

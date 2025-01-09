@@ -9,6 +9,7 @@ from sqlalchemy import Integer, String, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
+from src import TravelRoute, TravelRoutePlace  # type: ignore
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
 from src.reviews.dtos.response import (
     GetReviewResponse,
@@ -18,6 +19,7 @@ from src.reviews.dtos.response import (
 from src.reviews.models.models import Comment, Like, Review
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.services.review_utils import validate_order_by
+from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
@@ -112,7 +114,7 @@ async def get_review_handler(
         .where(cast(Review.id, Integer) == review_id)
         .options(
             joinedload(Review.user),  # type: ignore
-            joinedload(Review.travel_route),  # type: ignore
+            joinedload(Review.travel_route).joinedload(TravelRoute.travel_route_places).joinedload(TravelRoutePlace.place),  # type: ignore
         )
     )
     result = await review_repo.session.execute(query)
@@ -151,6 +153,9 @@ async def get_review_handler(
     liked_by_user = False
     if user_id:  # 로그인한 사용자에 대해서만 확인
         liked_by_user = any(like.user_id == user_id for like in review.likes)
+    place_names = []
+    for i in review.travel_route.travel_route_places:
+        place_names.append(i.place.name)
 
     return GetReviewResponse(
         review_id=review.id,
@@ -162,7 +167,7 @@ async def get_review_handler(
         like_count=len(review.likes),  # 좋아요 수
         liked_by_user=liked_by_user,  # 현재 사용자가 좋아요 했는지 여부
         regions=regions,
-        travel_route=review.travel_route.title,
+        travel_route=place_names,
         themes=themes,
         thumbnail=review.thumbnail,
         created_at=review.created_at,

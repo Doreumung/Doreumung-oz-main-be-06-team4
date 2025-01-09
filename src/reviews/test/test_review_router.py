@@ -1,14 +1,28 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
-from sqlalchemy import insert
+from fastapi import UploadFile
+from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.datastructures import Headers
 
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
-from src.reviews.dtos.response import GetReviewResponse, ReviewUpdateResponse
-from src.reviews.models.models import Comment, Like, Review, ReviewImage
+from src.reviews.dtos.response import (
+    GetReviewResponse,
+    ReviewImageResponse,
+    ReviewResponse,
+    ReviewUpdateResponse,
+)
+from src.reviews.models.models import (
+    Comment,
+    ImageSourceType,
+    Like,
+    Review,
+    ReviewImage,
+)
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
     create_review_handler,
@@ -110,7 +124,6 @@ async def test_get_review_handler(
         review_id=1,
         user_id=user.id,
         review_repo=review_repo,
-        user_repo=user_repo,
     )
 
     # 검증

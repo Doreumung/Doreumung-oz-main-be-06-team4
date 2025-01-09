@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
@@ -103,17 +103,9 @@ async def create_review_handler(
 )
 async def get_review_handler(
     review_id: int,
-    user_id: str = Depends(authenticate),
+    user_id: Optional[str] = Depends(authenticate),
     review_repo: ReviewRepo = Depends(),
-    user_repo: UserRepository = Depends(),
 ) -> GetReviewResponse:
-
-    user = await user_repo.get_user_by_id(user_id=user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
 
     query = (
         select(Review)
@@ -155,6 +147,11 @@ async def get_review_handler(
     if review.travel_route is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Travel route not found")
 
+    # 현재 사용자가 좋아요 했는지 확인
+    liked_by_user = False
+    if user_id:  # 로그인한 사용자에 대해서만 확인
+        liked_by_user = any(like.user_id == user_id for like in review.likes)
+
     return GetReviewResponse(
         review_id=review.id,
         nickname=review.user.nickname,
@@ -163,7 +160,7 @@ async def get_review_handler(
         rating=review.rating,
         content=review.content,
         like_count=len(review.likes),  # 좋아요 수
-        liked_by_user=any(like.user_id == user_id for like in review.likes),  # 현재 사용자가 좋아요 했는지 여부
+        liked_by_user=liked_by_user,  # 현재 사용자가 좋아요 했는지 여부
         regions=regions,
         travel_route=review.travel_route.title,
         themes=themes,

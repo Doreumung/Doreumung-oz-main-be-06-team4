@@ -39,12 +39,22 @@ def validate_file_size(file: UploadFile, max_size_mb: int = 5) -> None:
         )
 
 
+# 데이터 검증 유틸
+def validate_source_type(source_type: str) -> ImageSourceType:
+
+    try:
+        return ImageSourceType(source_type)
+    except ValueError:
+        raise ValueError(f"Invalid source_type: {source_type}. Must be one of {[e.value for e in ImageSourceType]}")
+
+
 # 유틸리티 함수: 파일 업로드 처리
-async def handle_file_upload(files: List[UploadFile], review_id: int, review_repo: ReviewRepo) -> None:
+async def handle_file_upload(files: List[UploadFile], review_id: int, review_repo: ReviewRepo) -> List[str]:
     """
     파일 업로드 처리 함수
     - 파일을 디스크에 저장하고 ReviewImage 테이블에 추가
     """
+    uploaded_filepaths = []
     for file in files:
         if not file.filename:
             raise HTTPException(status_code=400, detail="Filename cannot be None")
@@ -64,9 +74,11 @@ async def handle_file_upload(files: List[UploadFile], review_id: int, review_rep
         new_image = ReviewImage(
             review_id=review_id,
             filepath=str(file_path),
-            source_type="file",
+            source_type=ImageSourceType.UPLOAD.value,
         )
         await review_repo.save_image(new_image)
+        uploaded_filepaths.append(str(file_path))
+    return list(uploaded_filepaths)
 
 
 VALID_SOURCE_TYPES = {"url", "file"}
@@ -77,8 +89,9 @@ async def handle_image_urls(image_urls: List[str], review_id: int, review_repo: 
     이미지 URL 처리 함수
     - URL 이미지를 ReviewImage 테이블에 추가
     """
+    existing_urls = await review_repo.get_existing_image_urls(review_id)
     for image_url in image_urls:
-        if image_url:  # 이미지 URL이 None이 아닌 경우
+        if image_url and image_url not in existing_urls:  # 이미지 URL이 None이 아닌 경우
             source_type = ImageSourceType.LINK  # Enum 사용
             new_image = ReviewImage(
                 review_id=review_id,

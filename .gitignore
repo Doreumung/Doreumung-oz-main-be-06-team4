@@ -338,3 +338,6 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm+all,macos,windows,linux
 /excel_init.py
 /place_init_new.txt
+
+
+uploads

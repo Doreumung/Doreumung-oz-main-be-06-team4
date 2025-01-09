@@ -1,5 +1,5 @@
-import json
 from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -7,10 +7,11 @@ import pytest
 from fastapi import UploadFile
 from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.datastructures import Headers
 
 from src.reviews.dtos.request import ReviewRequestBase
-from src.reviews.dtos.response import ReviewResponse
-from src.reviews.models.models import Like, Review, ReviewImage
+from src.reviews.dtos.response import ReviewImageResponse, ReviewResponse
+from src.reviews.models.models import ImageSourceType, Like, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
     create_review_handler,
@@ -45,16 +46,18 @@ async def test_create_review_handler(
         "title": "Test Review",
         "rating": 5.0,
         "content": "This is a test review content.",
+        "thumbnail": "https://example.com/image1.jpg",
     }
 
     # 이미지 URL 데이터 준비
     image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+    unique_image_urls = list(set(image_urls))
 
     # 핸들러 호출 (이미지 URL 포함)
     result = await create_review_handler(
         body=ReviewRequestBase(**body_data),
         files=None,
-        image_urls=image_urls,
+        image_urls=unique_image_urls,
         review_repo=review_repo,
         current_user_id=user.id,
         user_repo=UserRepository(async_session),
@@ -66,29 +69,23 @@ async def test_create_review_handler(
     assert result.title == body_data["title"]
     assert result.rating == body_data["rating"]
     assert result.content == body_data["content"]
+    assert result.thumbnail == image_urls[0]
 
     # 이미지 URL 검증
-    assert len(result.images) == len(image_urls)
-    for i, image in enumerate(result.images):
-        assert image.review_id == result.id
-        assert image.filepath == image_urls[i]
-        assert image.source_type == "link"
+    saved_images_query = await async_session.execute(
+        select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == result.id)
+    )
+    saved_images = saved_images_query.scalars().all()
+    saved_image_filepaths = sorted([saved_image.filepath for saved_image in saved_images])
+    expected_image_filepaths = sorted(unique_image_urls)
+
+    assert saved_image_filepaths == expected_image_filepaths
 
     # 데이터베이스에서 리뷰 확인
     saved_review = await async_session.get(Review, result.id)
     assert saved_review is not None
     assert saved_review.title == body_data["title"]
     assert saved_review.content == body_data["content"]
-
-    # 데이터베이스에서 이미지 확인
-    saved_images_query = await async_session.execute(
-        select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == result.id)
-    )
-    saved_images = saved_images_query.scalars().all()
-    assert len(saved_images) == len(image_urls)
-    for i, saved_image in enumerate(saved_images):
-        assert saved_image.filepath == image_urls[i]
-        assert saved_image.source_type == "link"
 
     # 이미지 없이 리뷰 생성
     result_without_images = await create_review_handler(
@@ -122,6 +119,50 @@ async def test_create_review_handler(
     )
     saved_images_without_images = saved_images_query_without_images.scalars().all()
     assert len(saved_images_without_images) == 0
+
+    # 파일 데이터 준비
+    file_data = [
+        UploadFile(
+            filename="test_image.jpg",
+            file=BytesIO(b"fake image data"),
+            headers=Headers({"content-type": "image/jpeg"}),
+        )
+    ]
+
+    # 매핑된 값 사용
+    file_image_urls = ["uploads/8998406e-2a89-4bca-a101-e5e3cb1550bd_test_image.jpg"]
+
+    # 핸들러 호출
+    result_with_files = await create_review_handler(
+        body=ReviewRequestBase(**body_data),
+        files=file_data,
+        image_urls=file_image_urls,
+        review_repo=review_repo,
+        current_user_id=user.id,
+        user_repo=UserRepository(async_session),
+    )
+
+    # 검증
+    assert result_with_files.nickname == user.nickname
+    assert result_with_files.travel_route_id == body_data["travel_route_id"]
+    assert result_with_files.title == body_data["title"]
+    assert result_with_files.rating == body_data["rating"]
+    assert result_with_files.content == body_data["content"]
+    assert result_with_files.thumbnail == body_data["thumbnail"]
+
+    # 파일 검증
+    uploaded_files = [file.filename for file in file_data]
+    saved_images_query = await async_session.execute(
+        select(ReviewImage).where(ReviewImage.review_id == result_with_files.id)  # type: ignore
+    )
+    saved_images = saved_images_query.scalars().all()
+    assert len(saved_images) == 3, f"Expected 3 images, but got {len(saved_images)}"
+
+    for saved_image in saved_images:
+        if saved_image.source_type == ImageSourceType.UPLOAD.value:
+            assert any(saved_image.filepath.endswith(file_name) for file_name in uploaded_files)  # type: ignore
+        elif saved_image.source_type == ImageSourceType.LINK.value:
+            assert saved_image.filepath in file_image_urls
 
 
 """

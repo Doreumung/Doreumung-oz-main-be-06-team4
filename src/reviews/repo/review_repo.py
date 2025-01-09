@@ -1,11 +1,11 @@
 from typing import List, Optional, Sequence
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import Integer, cast, select
+from sqlalchemy import Integer, and_, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.database.connection_async import get_async_session
-from src.reviews.models.models import Comment, Review, ReviewImage
+from src.reviews.models.models import Comment, ImageSourceType, Review, ReviewImage
 
 
 class ReviewRepo:
@@ -90,6 +90,22 @@ class ReviewRepo:
         if image:
             await self.session.delete(image)
             await self.session.commit()
+
+    async def get_existing_image_urls(self, review_id: int) -> List[str]:
+        """
+        특정 리뷰에 이미 저장된 이미지 URL을 가져옵니다.
+        """
+        # 조건을 and_로 묶어 더 명확하게 표현
+        condition = and_(
+            ReviewImage.review_id == review_id,  # type: ignore
+            ReviewImage.source_type == ImageSourceType.LINK.value,  # type: ignore
+        )
+
+        # select 호출
+        result = await self.session.execute(select(ReviewImage.filepath).where(condition))  # type: ignore
+
+        # 결과 반환
+        return [row[0] for row in result.all()]
 
 
 class CommentRepo:

@@ -75,6 +75,7 @@ async def create_review_handler(
         title=body.title,
         rating=body.rating,
         content=body.content,
+        thumbnail=body.thumbnail,
     )
 
     # 리뷰 저장
@@ -91,6 +92,30 @@ async def create_review_handler(
         # 파일 업로드 처리 함수 호출
         await handle_file_upload(files, saved_review.id, review_repo)
 
+    # 파일 업로드 및 이미지 URL 처리
+    uploaded_filepaths: List[str] = []
+    if files:
+        uploaded_filepaths = await handle_file_upload(
+            files, saved_review.id, review_repo
+        )  # 임시 처리 (review_id는 이후 설정)
+
+    if image_urls:
+        await handle_image_urls(image_urls, saved_review.id, review_repo)  # 임시 처리 (review_id는 이후 설정)
+
+    # 썸네일 결정 및 저장
+    if body.thumbnail:
+        saved_review.thumbnail = body.thumbnail
+    elif files:
+        saved_review.thumbnail = uploaded_filepaths[0]
+    elif image_urls:
+        saved_review.thumbnail = image_urls[0]
+    else:
+        saved_review.thumbnail = None
+
+    # 업데이트된 리뷰 저장
+    await review_repo.save_review(saved_review)
+
+    images = await review_repo.get_image_by_id(saved_review.id)
     # 응답 생성
     response = ReviewResponse(
         id=saved_review.id,
@@ -104,6 +129,7 @@ async def create_review_handler(
         liked_by_user=False,
         created_at=saved_review.created_at,
         updated_at=saved_review.updated_at,
+        thumbnail=saved_review.thumbnail,
         images=[
             ReviewImageResponse(
                 id=image.id,
@@ -111,7 +137,7 @@ async def create_review_handler(
                 filepath=image.filepath,
                 source_type=image.source_type,
             )
-            for image in await review_repo.get_image_by_id(saved_review.id)
+            for image in images
         ],
     )
 

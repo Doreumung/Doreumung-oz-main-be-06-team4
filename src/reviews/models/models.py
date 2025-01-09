@@ -33,6 +33,9 @@ class ReviewImage(SQLModel, table=True):
 
 KST = timezone(timedelta(hours=9))
 
+if TYPE_CHECKING:
+    from src.travel.models.travel_route_place import TravelRoute
+
 
 class Review(SQLModel, table=True):
     __tablename__ = "reviews"
@@ -62,6 +65,7 @@ class Review(SQLModel, table=True):
     likes: List["Like"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
     comments: List["Comment"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
     user: Optional["User"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "select"})
+    travel_route: Optional["TravelRoute"] = Relationship(back_populates="reviews")
 
 
 class Like(SQLModel, table=True):

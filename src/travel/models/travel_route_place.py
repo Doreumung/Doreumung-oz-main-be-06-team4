@@ -1,9 +1,10 @@
 from datetime import datetime, time
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
 from sqlmodel import Field, Relationship, SQLModel
 
+from src.reviews.models.models import Review
 from src.travel.models.base import BaseDatetime, kst
 from src.travel.models.enums import RegionEnum, ThemeEnum
 from src.user.models.models import User
@@ -24,7 +25,8 @@ class TravelRoute(BaseDatetime, table=True):
     travel_route_places: list["TravelRoutePlace"] = Relationship(
         back_populates="travel_route", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    user: User = Relationship(back_populates="travel_routes")
+    user: "User" = Relationship(back_populates="travel_routes")
+    reviews: List["Review"] = Relationship(back_populates="travel_route")
 
 
 class TravelRoutePlace(BaseDatetime, table=True):

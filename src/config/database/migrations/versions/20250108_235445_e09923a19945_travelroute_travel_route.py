@@ -36,4 +36,4 @@ def downgrade() -> None:
         "reviews_travelroute_id_fkey", "reviews", "travelroute", ["travelroute_id"], ["id"]
     )  # 원래 이름으로 foreign key 복원
     op.drop_column("reviews", "travel_route_id")
-    # ### end Alembic commands ###
+    # ### end Alembic commands ##

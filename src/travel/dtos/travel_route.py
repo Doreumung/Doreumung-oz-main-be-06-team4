@@ -43,6 +43,7 @@ class GetTravelRouteListResponse(BaseModel):
     title: str
     schedule: ScheduleInfo
     config: TravelRouteConfig
+    travel_route: list[str]
 
 
 class GetTravelRouteListPaginationResponse(BaseModel):

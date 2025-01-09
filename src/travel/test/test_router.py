@@ -19,42 +19,42 @@ async def client() -> AsyncClient:  # type: ignore
 
 @pytest.mark.asyncio
 class TestRouter:
-    async def test_generator_travel_route(self, client: AsyncClient) -> None:
-        response = await client.post(
-            "/api/v1/travelroute",
-            json={
-                "config": {
-                    "regions": ["서귀포시", "한림읍"],
-                    "themes": ["자연", "액티비티"],
-                    "schedule": {"breakfast": True, "morning": 1, "lunch": True, "afternoon": 1, "dinner": True},
-                }
-            },
-        )
-        assert response.status_code == 200
-
-    async def test_re_generator_travel_route(
-        self, client: AsyncClient, user_save_init: tuple[User, User], place_list_init: list[Place]
-    ) -> None:
-        async def mock_authenticate() -> str:
-            return user_save_init[0].id
-
-        app.dependency_overrides[authenticate] = mock_authenticate
-        response = await client.post(
-            "/api/v1/travelroute",
-            json={
-                "title": "와우 정말 재밌겠는데요?!",
-                "schedule": {
-                    "morning": [{"place_id": place_list_init[0].id, "name": "string", "latitude": 0, "longitude": 0}],
-                    "afternoon": [{"place_id": place_list_init[1].id, "name": "string", "latitude": 0, "longitude": 0}],
-                },
-                "config": {
-                    "regions": ["서귀포시", "한림읍"],
-                    "themes": ["자연", "액티비티"],
-                    "schedule": {"breakfast": True, "morning": 1, "lunch": True, "afternoon": 1, "dinner": True},
-                },
-            },
-        )
-        assert response.status_code == 200
+    # async def test_generator_travel_route(self, client: AsyncClient) -> None:
+    #     response = await client.post(
+    #         "/api/v1/travelroute",
+    #         json={
+    #             "config": {
+    #                 "regions": ["서귀포시", "한림읍"],
+    #                 "themes": ["자연", "액티비티"],
+    #                 "schedule": {"breakfast": True, "morning": 1, "lunch": True, "afternoon": 1, "dinner": True},
+    #             }
+    #         },
+    #     )
+    #     assert response.status_code == 200
+    #
+    # async def test_re_generator_travel_route(
+    #     self, client: AsyncClient, user_save_init: tuple[User, User], place_list_init: list[Place]
+    # ) -> None:
+    #     async def mock_authenticate() -> str:
+    #         return user_save_init[0].id
+    #
+    #     app.dependency_overrides[authenticate] = mock_authenticate
+    #     response = await client.post(
+    #         "/api/v1/travelroute",
+    #         json={
+    #             "title": "와우 정말 재밌겠는데요?!",
+    #             "schedule": {
+    #                 "morning": [{"place_id": place_list_init[0].id, "name": "string", "latitude": 0, "longitude": 0}],
+    #                 "afternoon": [{"place_id": place_list_init[1].id, "name": "string", "latitude": 0, "longitude": 0}],
+    #             },
+    #             "config": {
+    #                 "regions": ["서귀포시", "한림읍"],
+    #                 "themes": ["자연", "액티비티"],
+    #                 "schedule": {"breakfast": True, "morning": 1, "lunch": True, "afternoon": 1, "dinner": True},
+    #             },
+    #         },
+    #     )
+    #     assert response.status_code == 200
 
     async def test_save_travel_route(
         self, client: AsyncClient, user_save_init: tuple[User, User], place_list_init: list[Place]

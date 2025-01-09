@@ -2,13 +2,16 @@ import random
 from math import atan2, cos, radians, sin, sqrt
 
 from src import Place  # type: ignore
+from src.config.database.connection_async import get_async_session
 from src.travel.dtos.base_travel_route import PlaceInfo, Schedule, ScheduleInfo
 from src.travel.models.enums import RegionEnum, ThemeEnum
+from src.travel.repo.place_repo import PlaceRepository
 from src.travel.services.shortest_path_sort import (
     create_distance_matrix,
     haversine,
     solve_tsp_brute_force,
 )
+from src.travel.test.fixtures import place_repository
 
 
 def loading_place_list() -> list[Place]:
@@ -62,13 +65,10 @@ def eating_place_list_to() -> list[Place]:
     return place_list
 
 
-# 전역변수로 미리 로드
-all_place_list = loading_place_list()
-
-
 # service 함수
 def random_place_list(
     regions: list[RegionEnum],
+    all_place_list: list[Place],
     themes: list[ThemeEnum],
     morning: int = 0,
     afternoon: int = 0,
@@ -76,7 +76,6 @@ def random_place_list(
     selected_regions: set[RegionEnum] | None = None,
     count: int | None = None,
 ) -> list[Place]:
-    global all_place_list
     filtered_list = [i for i in all_place_list if i.theme in themes and i.region in regions]
     if not selected_themes:
         selected_themes = set()
@@ -130,21 +129,21 @@ def point_to_line_distance(
 
 
 # 필터링: 두 장소 사이 선분 근처에 있는 식당 찾기
-def is_near_line(place1: Place, place2: Place, restaurant: Place, max_distance_km: int = 5) -> bool:
+def is_near_line(place1: PlaceInfo, place2: PlaceInfo, restaurant: Place, max_distance_km: int = 5) -> bool:
     distance = point_to_line_distance(
         place1.latitude, place1.longitude, place2.latitude, place2.longitude, restaurant.latitude, restaurant.longitude
     )
     return distance <= max_distance_km
 
 
-def place_list_close_line(start_place: Place, end_place: Place, restaurants: list[Place]) -> list[Place]:
+def place_list_close_line(start_place: PlaceInfo, end_place: PlaceInfo, restaurants: list[Place]) -> list[Place]:
     filtered_restaurants = [
         restaurant for restaurant in restaurants if is_near_line(start_place, end_place, restaurant, 3)
     ]
     return filtered_restaurants
 
 
-def place_list_in_radius(start_place: Place, radius: int, place_list: list[Place]) -> list[Place]:
+def place_list_in_radius(start_place: PlaceInfo, radius: int, place_list: list[Place]) -> list[Place]:
     result_place = []
     for place in place_list:
         if haversine(start_place.latitude, start_place.longitude, place.latitude, place.longitude) <= radius:
@@ -153,7 +152,7 @@ def place_list_in_radius(start_place: Place, radius: int, place_list: list[Place
 
 
 # service 함수
-def random_eating_place_list(start_place: Place, end_place: Place | None, place_list: list[Place]) -> Place:
+def random_eating_place_list(start_place: PlaceInfo, end_place: PlaceInfo | None, place_list: list[Place]) -> Place:
     filtered_list = place_list_in_radius(start_place, 3, place_list)
     if end_place is not None:
         place_list_close_line(start_place, end_place, filtered_list)
@@ -163,14 +162,24 @@ def random_eating_place_list(start_place: Place, end_place: Place | None, place_
     return choice_place
 
 
-def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], schedule: Schedule) -> ScheduleInfo:
+def complete_place_list(
+    regions: list[RegionEnum],
+    themes: list[ThemeEnum],
+    schedule: Schedule,
+    all_place_list: list[Place],
+    all_eating_place_list: list[Place],
+) -> ScheduleInfo:
     place_list = random_place_list(
-        regions=regions, themes=themes, morning=schedule.morning, afternoon=schedule.afternoon
+        all_place_list=all_place_list,
+        regions=regions,
+        themes=themes,
+        morning=schedule.morning,
+        afternoon=schedule.afternoon,
     )
     distance_matrix = create_distance_matrix(place_list)
     best_route, best_distance = solve_tsp_brute_force(distance_matrix)
     sorted_place_list = [place_list[i] for i in best_route]
-    eating_list = eating_place_list_to()
+    eating_list = all_eating_place_list
     breakfast = None
     morning = [PlaceInfo.model_validate(sorted_place_list[i]) for i in range(schedule.morning)]
     lunch = None
@@ -179,35 +188,34 @@ def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], sche
         for i in range(schedule.morning, schedule.morning + schedule.afternoon)
     ]
     dinner = None
-    if schedule.morning > 0:
-        if schedule.breakfast:
-            breakfast = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)  # type: ignore
+    if schedule.morning and schedule.breakfast:
+        breakfast = PlaceInfo.model_validate(
+            random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)
+        )
+    if schedule.lunch:
+        if afternoon:
+            lunch = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)
             )
-        if schedule.lunch:
-            if afternoon:
-                lunch = PlaceInfo.model_validate(
-                    random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)  # type: ignore
-                )
-            else:
-                lunch = PlaceInfo.model_validate(
-                    random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)  # type: ignore
-                )
-        if schedule.dinner:
-            if afternoon:
-                dinner = PlaceInfo.model_validate(
-                    random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)  # type: ignore
-                )
-            else:
-                dinner = PlaceInfo.model_validate(
-                    random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)  # type: ignore
-                )
+        else:
+            lunch = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)
+            )
+    if schedule.dinner:
+        dinner = PlaceInfo.model_validate(
+            random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)
+        )
     schedule = ScheduleInfo(breakfast=breakfast, morning=morning, lunch=lunch, afternoon=afternoon, dinner=dinner)  # type: ignore
     return schedule  # type: ignore
 
 
 def re_complete_place_list(
-    regions: list[RegionEnum], themes: list[ThemeEnum], schedule: Schedule, pined_place_list: list[Place]
+    all_place_list: list[Place],
+    regions: list[RegionEnum],
+    themes: list[ThemeEnum],
+    schedule: Schedule,
+    pined_place_list: list[Place],
+    all_eating_place_list: list[Place],
 ) -> ScheduleInfo:
     count = schedule.morning + schedule.afternoon - len(pined_place_list)
     selected_themes = set()
@@ -216,16 +224,18 @@ def re_complete_place_list(
         selected_themes.add(i.theme)
         selected_regions.add(i.region)
     place_list = random_place_list(
-        regions=regions, themes=themes, count=count, selected_themes=selected_themes, selected_regions=selected_regions
+        all_place_list=all_place_list,
+        regions=regions,
+        themes=themes,
+        count=count,
+        selected_themes=selected_themes,
+        selected_regions=selected_regions,
     )
-    print(place_list)
-    print(place_list)
-    print(place_list)
     place_list += pined_place_list
     distance_matrix = create_distance_matrix(place_list)
     best_route, best_distance = solve_tsp_brute_force(distance_matrix)
     sorted_place_list = [place_list[i] for i in best_route]
-    eating_list = eating_place_list_to()
+    eating_list = all_eating_place_list
     breakfast = None
     morning = [PlaceInfo.model_validate(sorted_place_list[i]) for i in range(schedule.morning)]
     lunch = None
@@ -234,18 +244,22 @@ def re_complete_place_list(
         for i in range(schedule.morning, schedule.morning + schedule.afternoon)
     ]
     dinner = None
-    if schedule.morning > 0:
-        if schedule.breakfast:
-            breakfast = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)  # type: ignore
-            )
-        if schedule.lunch:
+    if schedule.morning and schedule.breakfast:
+        breakfast = PlaceInfo.model_validate(
+            random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)
+        )
+    if schedule.lunch:
+        if afternoon:
             lunch = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)  # type: ignore
+                random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)
             )
-        if schedule.dinner:
-            dinner = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)  # type: ignore
+        else:
+            lunch = PlaceInfo.model_validate(
+                random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)
             )
-    schedule = ScheduleInfo(breakfast=breakfast, morning=morning, lunch=lunch, afternoon=afternoon, dinner=dinner)  # type: ignore
-    return schedule  # type: ignore
+    if schedule.dinner:
+        dinner = PlaceInfo.model_validate(
+            random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)
+        )
+    new_schedule = ScheduleInfo(breakfast=breakfast, morning=morning, lunch=lunch, afternoon=afternoon, dinner=dinner)
+    return new_schedule

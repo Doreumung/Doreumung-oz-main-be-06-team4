@@ -3,12 +3,14 @@ from typing import AsyncGenerator, Generator
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config import settings
 from src.config.orm import Base
 from src.main import app
 
+pytest_plugins = ["src.reviews.test.fixtures", "src.travel.test.fixtures"]
 DATABASE_URL = settings.TEST_ASYNC_DATABASE_URL
 
 # 비동기 엔진 생성

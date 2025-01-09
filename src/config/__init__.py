@@ -33,13 +33,13 @@ def load_environment_variables(env: ServerEnv) -> None:
     env_file = None
     match env:
         case ServerEnv.DEV:
-            env_file = "src/config/.env.dev"
+            env_file = "config/.env.dev"
         case ServerEnv.PROD:
-            env_file = "src/config/.env.prod"
+            env_file = "config/.env.prod"
         case _:
-            env_file = "src/config/.env.local"  # 수정된 경로
+            env_file = "config/.env.local"  # 수정된 경로
     if os.getenv("ON_CI") == "true":
-        env_file = "src/config/.env.ci"
+        env_file = "config/.env.ci"
     # .env 파일 경로가 정확한지 확인하고 로드합니다.
     if env_file:
         # .env 파일이 없으면 오류를 발생시킬 수 있습니다.

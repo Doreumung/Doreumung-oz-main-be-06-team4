@@ -19,7 +19,7 @@ from src.reviews.router.review_router import (
     get_review_handler,
     update_review_handler,
 )
-from src.reviews.test.conftest import KST
+from src.reviews.test.fixtures import KST
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository

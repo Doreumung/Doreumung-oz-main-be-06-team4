@@ -15,9 +15,10 @@ class SignUpRequestBody(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
-    new_password: str
-    new_nickname: str
-    new_birthday: date
+    new_password: Optional[str] = None
+    new_nickname: Optional[str] = None
+    new_birthday: Optional[date] = None
+    new_gender: Optional[Gender] = None
 
 
 class UserLoginRequestBody(BaseModel):

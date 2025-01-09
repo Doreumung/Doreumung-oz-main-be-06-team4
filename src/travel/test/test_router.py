@@ -39,7 +39,7 @@ class TestRouter:
             return user_save_init[0].id
 
         app.dependency_overrides[authenticate] = mock_authenticate
-        response = await client.patch(
+        response = await client.post(
             "/api/v1/travelroute",
             json={
                 "title": "와우 정말 재밌겠는데요?!",

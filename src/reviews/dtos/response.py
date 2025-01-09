@@ -25,7 +25,7 @@ class ReviewResponse(BaseModel):
     id: int
     nickname: str
     user_id: str
-    travelroute_id: int
+    travel_route_id: int
     title: str
     rating: float
     content: str
@@ -33,6 +33,7 @@ class ReviewResponse(BaseModel):
     liked_by_user: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
+    images: List[ReviewImageResponse]
 
     class Config:
         from_attributes = True

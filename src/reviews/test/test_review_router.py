@@ -29,98 +29,6 @@ from src.user.repo.repository import UserRepository
 """
 
 
-# @pytest.mark.asyncio
-# async def test_create_review_handler(
-#     async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
-# ) -> None:
-#     user = setup_data
-#     travelroute = setup_travelroute
-#
-#     # 실제 데이터베이스에 ReviewRepo 초기화
-#     review_repo = ReviewRepo(async_session)
-#
-#     # 요청 데이터 생성
-#     body_data: Dict[str, Any] = {
-#         "user_id": user.id,
-#         "travelroute_id": travelroute.id,
-#         "title": "Test Review",
-#         "rating": 5.0,
-#         "content": "This is a test review content.",
-#         "nickname": "test_user",
-#     }
-#     body = json.dumps(body_data)
-#
-#     # 이미지 URL 데이터 준비
-#     image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
-#
-#     # 핸들러 호출
-#     result = await create_review_handler(
-#         body=str(body),
-#         files=None,
-#         image_urls=image_urls,
-#         review_repo=review_repo,
-#     )
-#
-#     # 결과 검증
-#     assert result.user_id == body_data["user_id"]
-#     assert result.travelroute_id == body_data["travelroute_id"]
-#     assert result.title == body_data["title"]
-#     assert result.rating == body_data["rating"]
-#     assert result.content == body_data["content"]
-#
-#     # 이미지 URL 검증
-#     assert len(result.images) == len(image_urls)
-#     for i, image in enumerate(result.images):
-#         assert image.review_id == result.id
-#         assert image.filepath == image_urls[i]
-#         assert image.source_type == "link"
-#
-#     # 데이터베이스에서 리뷰 확인
-#     saved_review = await async_session.get(Review, result.id)
-#     assert saved_review is not None
-#     assert saved_review.title == body_data["title"]
-#     assert saved_review.content == body_data["content"]
-#
-#     # 데이터베이스에서 이미지 확인
-#     saved_images_query = await async_session.execute(
-#         select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == result.id)
-#     )
-#     saved_images = saved_images_query.scalars().all()
-#     assert len(saved_images) == len(image_urls)
-#     for i, saved_image in enumerate(saved_images):
-#         assert saved_image.filepath == image_urls[i]
-#         assert saved_image.source_type == "link"
-#
-#     #  이미지 없이 리뷰 생성
-#     result_without_images = await create_review_handler(
-#         body=str(body),
-#         files=None,
-#         image_urls=None,  # 이미지 URL 없음
-#         review_repo=review_repo,
-#     )
-#
-#     # 결과 검증 (이미지 없음)
-#     assert result_without_images.user_id == body_data["user_id"]
-#     assert result_without_images.travelroute_id == body_data["travelroute_id"]
-#     assert result_without_images.title == body_data["title"]
-#     assert result_without_images.rating == body_data["rating"]
-#     assert result_without_images.content == body_data["content"]
-#
-#     # 이미지가 없는지 확인
-#     assert len(result_without_images.images) == 0
-#
-#     # 데이터베이스에서 리뷰 확인
-#     saved_review_without_images = await async_session.get(Review, result_without_images.id)
-#     assert saved_review_without_images is not None
-#     assert saved_review_without_images.title == body_data["title"]
-#     assert saved_review_without_images.content == body_data["content"]
-#
-#     # 이미지가 없는지 데이터베이스에서 확인
-#     saved_images_query_without_images = await async_session.execute(
-#         select(ReviewImage).where(ReviewImage.review_id == result_without_images.id)  # type: ignore
-#     )
-#     saved_images_without_images = saved_images_query_without_images.scalars().all()
-#     assert len(saved_images_without_images) == 0
 @pytest.mark.asyncio
 async def test_create_review_handler(
     async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
@@ -133,33 +41,87 @@ async def test_create_review_handler(
 
     # 요청 데이터 생성
     body_data: Dict[str, Any] = {
-        "user_id": user.id,
-        "travelroute_id": travelroute.id,
+        "travel_route_id": travelroute.id,
         "title": "Test Review",
         "rating": 5.0,
         "content": "This is a test review content.",
-        "nickname": "test_user",
     }
-    body = ReviewRequestBase(**body_data)
 
-    # 핸들러 호출
+    # 이미지 URL 데이터 준비
+    image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+
+    # 핸들러 호출 (이미지 URL 포함)
     result = await create_review_handler(
-        body=body,
+        body=ReviewRequestBase(**body_data),
+        files=None,
+        image_urls=image_urls,
         review_repo=review_repo,
+        current_user_id=user.id,
+        user_repo=UserRepository(async_session),
     )
 
     # 결과 검증
-    assert result.user_id == body_data["user_id"]
-    assert result.travelroute_id == body_data["travelroute_id"]
+    assert result.nickname == user.nickname
+    assert result.travel_route_id == body_data["travel_route_id"]
     assert result.title == body_data["title"]
     assert result.rating == body_data["rating"]
     assert result.content == body_data["content"]
+
+    # 이미지 URL 검증
+    assert len(result.images) == len(image_urls)
+    for i, image in enumerate(result.images):
+        assert image.review_id == result.id
+        assert image.filepath == image_urls[i]
+        assert image.source_type == "link"
 
     # 데이터베이스에서 리뷰 확인
     saved_review = await async_session.get(Review, result.id)
     assert saved_review is not None
     assert saved_review.title == body_data["title"]
     assert saved_review.content == body_data["content"]
+
+    # 데이터베이스에서 이미지 확인
+    saved_images_query = await async_session.execute(
+        select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == result.id)
+    )
+    saved_images = saved_images_query.scalars().all()
+    assert len(saved_images) == len(image_urls)
+    for i, saved_image in enumerate(saved_images):
+        assert saved_image.filepath == image_urls[i]
+        assert saved_image.source_type == "link"
+
+    # 이미지 없이 리뷰 생성
+    result_without_images = await create_review_handler(
+        body=ReviewRequestBase(**body_data),
+        files=None,
+        image_urls=None,  # 이미지 URL 없음
+        review_repo=review_repo,
+        current_user_id=user.id,
+        user_repo=UserRepository(async_session),
+    )
+
+    # 결과 검증 (이미지 없음)
+    assert result_without_images.user_id == user.id
+    assert result_without_images.travel_route_id == body_data["travel_route_id"]
+    assert result_without_images.title == body_data["title"]
+    assert result_without_images.rating == body_data["rating"]
+    assert result_without_images.content == body_data["content"]
+
+    # 이미지가 없는지 확인
+    assert len(result_without_images.images) == 0
+
+    # 데이터베이스에서 리뷰 확인
+    saved_review_without_images = await async_session.get(Review, result_without_images.id)
+    assert saved_review_without_images is not None
+    assert saved_review_without_images.title == body_data["title"]
+    assert saved_review_without_images.content == body_data["content"]
+
+    # 이미지가 없는지 데이터베이스에서 확인
+    saved_images_query_without_images = await async_session.execute(
+        select(ReviewImage).where(ReviewImage.review_id == result_without_images.id)  # type: ignore
+    )
+    saved_images_without_images = saved_images_query_without_images.scalars().all()
+    assert len(saved_images_without_images) == 0
 
 
 """
@@ -174,11 +136,11 @@ async def test_get_review_handler(
     setup_travelroute: TravelRoute,
 ) -> None:
     user = setup_data
-    travelroute = setup_travelroute
+    travel_route = setup_travelroute
     review_data = {
         "id": 1,
         "user_id": user.id,
-        "travelroute_id": travelroute.id,
+        "travel_route_id": travel_route.id,
         "title": "Test Review",
         "rating": 5.0,
         "content": "This is a test review content.",
@@ -216,14 +178,14 @@ async def test_get_all_review_handler(
     setup_travelroute: TravelRoute,
 ) -> None:
     user = setup_data
-    travelroute = setup_travelroute
+    travel_route = setup_travelroute
 
     # 리뷰 데이터 생성
     reviews = [
         Review(
             id=i,
             user_id=user.id,
-            travelroute_id=travelroute.id,
+            travel_route_id=travel_route.id,
             title=f"Review {i}",
             rating=4.5,
             content="This is a test review",
@@ -316,12 +278,12 @@ async def test_update_review_handler(
     setup_travelroute: TravelRoute,
 ) -> None:
     user = setup_data
-    travelroute = setup_travelroute
+    travel_route = setup_travelroute
     review_id = 1
     review = Review(
         id=review_id,
         user_id=user.id,
-        travelroute_id=travelroute.id,
+        travel_route_id=travel_route.id,
         title="Test Review",
         content="This is a test review content.",
         rating=4.0,
@@ -333,9 +295,7 @@ async def test_update_review_handler(
     review_repo = ReviewRepo(async_session)
 
     body = ReviewRequestBase(
-        user_id=user.id,
-        travelroute_id=travelroute.id,
-        nickname=user.nickname,
+        travel_route_id=travel_route.id,
         title="Update Title",
         content="Update Content",
         rating=5.0,
@@ -383,12 +343,12 @@ async def test_delete_review_handler(
     setup_travelroute: TravelRoute,
 ) -> None:
     user = setup_data
-    travelroute = setup_travelroute
+    travel_route = setup_travelroute
     review_id = 1
     review = Review(
         id=review_id,
         user_id=user.id,
-        travelroute_id=travelroute.id,
+        travel_route_id=travel_route.id,
         title="Test Review",
         content="This is a test review content.",
         rating=4.0,

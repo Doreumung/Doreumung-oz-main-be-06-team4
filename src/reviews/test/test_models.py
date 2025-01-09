@@ -20,7 +20,7 @@ async def test_review_model(async_session: AsyncSession, setup_data: User, setup
     # 테스트 데이터 생성
     review = Review(
         user_id=str(user.id),
-        travelroute_id=int(cast(int, setup_travelroute.id)),
+        travel_route_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -44,7 +44,7 @@ async def test_image_relationship(
     user = setup_data
     review = Review(
         user_id=str(user.id),
-        travelroute_id=int(cast(int, setup_travelroute.id)),
+        travel_route_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -81,7 +81,7 @@ async def test_comment_model(async_session: AsyncSession, setup_data: User, setu
     user = setup_data
     review = Review(
         user_id=str(user.id),
-        travelroute_id=int(cast(int, setup_travelroute.id)),
+        travel_route_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",
@@ -111,7 +111,7 @@ async def test_like_model(async_session: AsyncSession, setup_data: User, setup_t
 
     review = Review(
         user_id=str(user.id),
-        travelroute_id=int(cast(int, setup_travelroute.id)),
+        travel_route_id=int(cast(int, setup_travelroute.id)),
         title="Test Review",
         rating=5,
         content="Test content",

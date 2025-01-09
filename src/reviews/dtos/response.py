@@ -84,4 +84,25 @@ class CommentResponse(BaseModel):
         from_attributes = True
 
 
+class GetCommentResponse(BaseModel):
+    comment_id: int
+    nickname: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UpdateCommentResponse(BaseModel):
+    comment_id: int
+    nickname: str
+    content: str
+    updated_at: datetime
+    message: str
+
+    class Config:
+        orm_mode = True
+
+
 #

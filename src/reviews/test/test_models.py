@@ -130,3 +130,6 @@ async def test_like_model(async_session: AsyncSession, setup_data: User, setup_t
 
     assert retrieved_like is not None
     assert retrieved_like.user_id == user.id
+
+
+#

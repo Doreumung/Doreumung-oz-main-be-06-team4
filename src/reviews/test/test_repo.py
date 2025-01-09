@@ -284,3 +284,6 @@ async def test_delete_comment(async_session: AsyncSession, sample_review: list[R
 
     deleted_comment = await repo.get_comment_by_id(comment_data.id)
     assert deleted_comment is None
+
+
+#

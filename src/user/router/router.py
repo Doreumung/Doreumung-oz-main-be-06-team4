@@ -103,9 +103,7 @@ async def login_handler(
     "/user/logout",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def logout_handler(
-    body: UserLogoutRequestBody,
-) -> None:
+async def logout_handler(body: UserLogoutRequestBody, response: Response) -> None:
     try:
         access_payload = decode_refresh_token(body.access_token)
     except HTTPException as e:
@@ -125,7 +123,11 @@ async def logout_handler(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token mismatch between access and refresh tokens",
         )
-    return
+    # Access Token 쿠키 삭제
+    response.delete_cookie(key="access_token", path="/", domain=None)
+
+    # Refresh Token 쿠키 삭제
+    response.delete_cookie(key="refresh_token", path="/", domain=None)
 
 
 # 내 정보 조회

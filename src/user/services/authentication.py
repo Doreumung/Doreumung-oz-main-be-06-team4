@@ -33,6 +33,7 @@ KST = timezone(timedelta(hours=9))
 
 class JWTPayload(TypedDict):
     user_id: str
+    type: str
     exp: int
 
 
@@ -40,6 +41,7 @@ def encode_access_token(user_id: str, expires_delta: timedelta = timedelta(days=
     expire = datetime.now(KST) + expires_delta
     payload: JWTPayload = {
         "user_id": user_id,
+        "type": "access",
         "exp": int(expire.timestamp()),
     }
     return jwt.encode(dict(payload), SECRET_KEY, algorithm=ALGORITHM)
@@ -48,7 +50,7 @@ def encode_access_token(user_id: str, expires_delta: timedelta = timedelta(days=
 def decode_access_token(access_token: str) -> JWTPayload:
     try:
         payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
-        return JWTPayload(user_id=payload["user_id"], exp=payload["exp"])
+        return JWTPayload(user_id=payload["user_id"], type=payload["type"], exp=payload["exp"])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -59,6 +61,7 @@ def encode_refresh_token(user_id: str, expires_delta: timedelta = timedelta(days
     expire = datetime.now(KST) + expires_delta
     payload = {
         "user_id": user_id,
+        "type": "refresh",
         "exp": int(expire.timestamp()),
     }
     return jwt.encode(dict(payload), SECRET_KEY, algorithm=ALGORITHM)
@@ -71,6 +74,7 @@ def decode_refresh_token(token: str) -> JWTPayload:
         # Ensure the decoded token matches the JWTPayload structure
         payload: JWTPayload = {
             "user_id": str(decoded_token["user_id"]),
+            "type": str(decoded_token["type"]),
             "exp": int(decoded_token["exp"]),
         }
         return payload

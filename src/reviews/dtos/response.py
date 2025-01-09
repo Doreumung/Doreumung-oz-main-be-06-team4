@@ -24,7 +24,6 @@ class UploadImageResponse(BaseModel):
 class ReviewResponse(BaseModel):
     id: int
     nickname: str
-    user_id: str
     travel_route_id: int
     title: str
     rating: float
@@ -33,7 +32,6 @@ class ReviewResponse(BaseModel):
     liked_by_user: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
-    images: List[ReviewImageResponse]
     thumbnail: Optional[str]
 
     class Config:

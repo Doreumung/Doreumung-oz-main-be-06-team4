@@ -22,7 +22,13 @@ from sqlalchemy.sql import select
 
 from src.reviews.dtos.request import ReviewRequestBase
 from src.reviews.dtos.response import ReviewImageResponse, ReviewResponse
-from src.reviews.models.models import ImageSourceType, Like, Review, ReviewImage
+from src.reviews.models.models import (
+    Comment,
+    ImageSourceType,
+    Like,
+    Review,
+    ReviewImage,
+)
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.services.review_utils import (
     handle_file_upload,
@@ -53,13 +59,13 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review_handler(
-    body: ReviewRequestBase = Form(...),
-    image_urls: Optional[List[str]] = Form(None),
-    files: Optional[List[UploadFile]] = File(None),
-    review_repo: ReviewRepo = Depends(),
+    body: ReviewRequestBase = Body(...),  # 리뷰 본문 처리
+    review_repo: ReviewRepo = Depends(),  # 의존성 주입
     current_user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> ReviewResponse:
+    # 요청 바디 로깅
+    logging.info(f"Received request body: {body}")
     # 사용자 확인
     user = await user_repo.get_user_by_id(user_id=current_user_id)
     if not user:
@@ -70,57 +76,25 @@ async def create_review_handler(
 
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=user.id,
+        user_id=current_user_id,
         travel_route_id=body.travel_route_id,
         title=body.title,
         rating=body.rating,
         content=body.content,
         thumbnail=body.thumbnail,
     )
+    logging.info(f"Created Review object: {new_review}")
 
     # 리뷰 저장
     saved_review = await review_repo.save_review(new_review)
     if not saved_review or not saved_review.id:
         raise HTTPException(status_code=500, detail="Failed to save review")
+    logging.info(f"Saved Review: {saved_review}")
 
-    # 이미지 처리 (선택적)
-    if image_urls:
-        # 이미지 URL 처리 함수 호출
-        await handle_image_urls(image_urls, saved_review.id, review_repo)
-
-    if files:
-        # 파일 업로드 처리 함수 호출
-        await handle_file_upload(files, saved_review.id, review_repo)
-
-    # 파일 업로드 및 이미지 URL 처리
-    uploaded_filepaths: List[str] = []
-    if files:
-        uploaded_filepaths = await handle_file_upload(
-            files, saved_review.id, review_repo
-        )  # 임시 처리 (review_id는 이후 설정)
-
-    if image_urls:
-        await handle_image_urls(image_urls, saved_review.id, review_repo)  # 임시 처리 (review_id는 이후 설정)
-
-    # 썸네일 결정 및 저장
-    if body.thumbnail:
-        saved_review.thumbnail = body.thumbnail
-    elif files:
-        saved_review.thumbnail = uploaded_filepaths[0]
-    elif image_urls:
-        saved_review.thumbnail = image_urls[0]
-    else:
-        saved_review.thumbnail = None
-
-    # 업데이트된 리뷰 저장
-    await review_repo.save_review(saved_review)
-
-    images = await review_repo.get_image_by_id(saved_review.id)
-    # 응답 생성
+    # 최종 응답 생성
     response = ReviewResponse(
         id=saved_review.id,
         nickname=user.nickname,
-        user_id=user.id,
         travel_route_id=saved_review.travel_route_id,
         title=saved_review.title,
         rating=saved_review.rating,
@@ -130,17 +104,7 @@ async def create_review_handler(
         created_at=saved_review.created_at,
         updated_at=saved_review.updated_at,
         thumbnail=saved_review.thumbnail,
-        images=[
-            ReviewImageResponse(
-                id=image.id,
-                review_id=image.review_id,
-                filepath=image.filepath,
-                source_type=image.source_type,
-            )
-            for image in images
-        ],
     )
-
     return response
 
 
@@ -205,22 +169,37 @@ async def get_all_review_handler(
         .subquery()
     )
 
+    # 댓글 개수 계산 서브 쿼리
+    comment_count_subquery = (
+        select(cast(Review.id, Integer), func.count("*").label("comment_count"))
+        .outerjoin(Comment, cast(Review.id, Integer) == Comment.review_id)
+        .group_by(cast(Review.id, Integer))
+        .subquery()
+    )
+
     # 리뷰와 좋아요 개수를 조인
     query = (
         select(
             Review.title.label("title"),  # type: ignore
+            Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
             like_count_subquery.c.like_count.label("like_count"),
+            comment_count_subquery.c.comment_count.label("comment_count"),
         )
         .join(User, User.id == Review.user_id)  # type: ignore
-        .join(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
+        .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
+        .outerjoin(comment_count_subquery, cast(Review.id, Integer) == comment_count_subquery.c.id)
     )
 
     # 정렬 컬럼 및 방향 설정
-    valid_order_by_columns = ["created_at", "title", "like_count"]
+    valid_order_by_columns = ["created_at", "title", "like_count", "comment_count", "rating"]
     if order_by == "likes":
         order_column = like_count_subquery.c.like_count
+    elif order_by == "comments":
+        order_column = comment_count_subquery.c.comment_count
+    elif order_by == "rating":
+        order_column = Review.rating  # type: ignore
     else:
         order_column = validate_order_by(order_by, set(valid_order_by_columns))
 
@@ -244,8 +223,10 @@ async def get_all_review_handler(
         {
             "title": review.title,
             "nickname": review.nickname,
-            "created_at": review.created_at.isoformat(),
             "like_count": review.like_count,
+            "comment_count": review.comment_count,
+            "rating": review.rating,
+            "created_at": review.created_at.isoformat(),
         }
         for review in reviews
     ]
@@ -254,6 +235,7 @@ async def get_all_review_handler(
         "page": page,
         "size": size,
         "total_pages": (total_reviews + size - 1) // size,
+        "total_reviews": total_reviews,
         "reviews": review_data,
     }
 

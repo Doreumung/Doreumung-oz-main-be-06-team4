@@ -8,7 +8,6 @@ class ReviewRequestBase(BaseModel):
     title: str
     rating: float
     content: str
-    images: Optional[List[str]] = None
     thumbnail: Optional[str] = None
 
     class Config:

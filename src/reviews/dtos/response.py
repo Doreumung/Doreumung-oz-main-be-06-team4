@@ -86,6 +86,7 @@ class CommentResponse(BaseModel):
 
 class GetCommentResponse(BaseModel):
     comment_id: int
+    user_id: str
     nickname: str
     content: str
     created_at: datetime

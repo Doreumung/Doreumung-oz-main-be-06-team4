@@ -170,7 +170,7 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
     )
     config = TravelRouteConfig(regions=travel_route.regions, themes=travel_route.themes, schedule=schedule)
     return GetTravelRouteListResponse(
-        travelroute_id=travel_route.id, user_id=user_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
+        travel_route_id=travel_route.id, user_id=user_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
     )
 
 
@@ -186,7 +186,7 @@ async def get_travel_routes(
     total_pages = (total_travelroutes - 1) // size + 1
     response_list = response_list[size * (page - 1) : size * page]  # 나중에 query시 LIMIT 적용으로 바꾸기
     return GetTravelRouteListPaginationResponse(
-        page=page, size=size, total_pages=total_pages, total_travelroutes=total_travelroutes, travel_list=response_list
+        page=page, size=size, total_pages=total_pages, total_travel_routes=total_travelroutes, travel_list=response_list
     )
 
 

@@ -1,41 +1,24 @@
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 
-from fastapi import (
-    APIRouter,
-    Body,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import Integer, String, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
-from src.reviews.dtos.request import ReviewRequestBase
-from src.reviews.dtos.response import ReviewImageResponse, ReviewResponse
-from src.reviews.models.models import (
-    Comment,
-    ImageSourceType,
-    Like,
-    Review,
-    ReviewImage,
+from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
+from src.reviews.dtos.response import (
+    GetReviewResponse,
+    ReviewResponse,
+    ReviewUpdateResponse,
 )
+from src.reviews.models.models import Comment, Like, Review
 from src.reviews.repo.review_repo import ReviewRepo
-from src.reviews.services.review_utils import (
-    handle_file_upload,
-    handle_image_urls,
-    validate_order_by,
-    validate_review_image,
-)
+from src.reviews.services.review_utils import validate_order_by
+from src.travel.models.enums import RegionEnum, ThemeEnum
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
 from src.user.services.authentication import authenticate
@@ -93,7 +76,7 @@ async def create_review_handler(
 
     # 최종 응답 생성
     response = ReviewResponse(
-        id=saved_review.id,
+        review_id=saved_review.id,
         nickname=user.nickname,
         travel_route_id=saved_review.travel_route_id,
         title=saved_review.title,
@@ -115,7 +98,7 @@ async def create_review_handler(
 
 @review_router.get(
     "/reviews/{review_id}",
-    response_model=ReviewResponse,
+    response_model=GetReviewResponse,
     status_code=status.HTTP_200_OK,
 )
 async def get_review_handler(
@@ -123,25 +106,71 @@ async def get_review_handler(
     user_id: str = Depends(authenticate),
     review_repo: ReviewRepo = Depends(),
     user_repo: UserRepository = Depends(),
-) -> ReviewResponse:
-    user = await user_repo.get_user_by_id(user_id)
+) -> GetReviewResponse:
 
-    # 사전 유효성 검사
-    if not user or user.id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user = await user_repo.get_user_by_id(user_id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
 
-    # 수정된 쿼리
-    query = select(Review).where(cast(Review.id, Integer) == review_id).options(joinedload(Review.user))  # type: ignore
+    query = (
+        select(Review)
+        .where(cast(Review.id, Integer) == review_id)
+        .options(
+            joinedload(Review.user),  # type: ignore
+            joinedload(Review.travel_route),  # type: ignore
+        )
+    )
     result = await review_repo.session.execute(query)
     review = result.unique().scalar_one_or_none()
 
     if not review:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found",
+        )
+    regions: List[RegionEnum] = (
+        review.travel_route.regions
+        if review.travel_route and isinstance(review.travel_route.regions, list)
+        else (
+            [review.travel_route.regions]  # type: ignore
+            if review.travel_route and review.travel_route.regions is not None
+            else []
+        )
+    )
+
+    themes: List[ThemeEnum] = (
+        review.travel_route.themes
+        if review.travel_route and isinstance(review.travel_route.themes, list)
+        else (
+            [review.travel_route.themes]  # type: ignore
+            if review.travel_route and review.travel_route.themes is not None
+            else []
+        )
+    )
     if review.user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if review.travel_route is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Travel route not found")
 
-    # 단일 리뷰 반환
-    return ReviewResponse.model_validate({**review.__dict__, "nickname": review.user.nickname})
+    return GetReviewResponse(
+        review_id=review.id,
+        nickname=review.user.nickname,
+        travel_route_id=review.travel_route.id,
+        title=review.title,
+        rating=review.rating,
+        content=review.content,
+        like_count=len(review.likes),  # 좋아요 수
+        liked_by_user=any(like.user_id == user_id for like in review.likes),  # 현재 사용자가 좋아요 했는지 여부
+        regions=regions,
+        travel_route=review.travel_route.title,
+        themes=themes,
+        thumbnail=review.thumbnail,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
+    )
 
 
 """
@@ -247,17 +276,22 @@ async def get_all_review_handler(
 
 @review_router.patch(
     "/reviews/{review_id}",
-    response_model=ReviewResponse,
+    response_model=ReviewUpdateResponse,
     status_code=status.HTTP_200_OK,
 )
 async def update_review_handler(
     review_id: int,
-    body: ReviewRequestBase,
-    files: Optional[List[UploadFile]] = File(None),
-    image_urls: Optional[List[str]] = None,
+    body: ReviewUpdateRequest,
     review_repo: ReviewRepo = Depends(),
     user_id: str = Depends(authenticate),
-) -> ReviewResponse:
+    user_repo: UserRepository = Depends(),
+) -> ReviewUpdateResponse:
+    user = await user_repo.get_user_by_id(user_id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
 
     if not isinstance(review_id, int):
         raise ValueError("review_id must be an integer")
@@ -282,26 +316,20 @@ async def update_review_handler(
         review.content = body.content
     if body.rating is not None:
         review.rating = body.rating
+    if body.thumbnail is not None:
+        review.thumbnail = body.thumbnail
     review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
 
-    # 기존 이미지 삭제
-    existing_images = await review_repo.get_image_by_id(review_id)
-    if existing_images:  # None이 아닌 경우에만 처리
-        for image in existing_images:
-            if image.source_type == "upload":
-                file_path = Path(image.filepath)
-                if file_path.exists():
-                    file_path.unlink()
-            await review_repo.delete_image(image.id)
-
-    # 새 URL 및 파일 업로드 처리
-    if image_urls:
-        await handle_image_urls(image_urls, review_id, review_repo)
-    if files:
-        await handle_file_upload(files, review_id, review_repo)
-
     await review_repo.save_review(review)
-    return ReviewResponse.model_validate({**review.__dict__, "nickname": nickname})
+    return ReviewUpdateResponse(
+        review_id=review.id,
+        title=review.title,
+        content=review.content,
+        rating=review.rating,
+        thumbnail=review.thumbnail,
+        nickname=nickname,
+        updated_at=review.updated_at,
+    )
 
 
 """

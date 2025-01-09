@@ -14,6 +14,16 @@ class ReviewRequestBase(BaseModel):
         from_attributes = True
 
 
+class ReviewUpdateRequest(BaseModel):
+    title: str
+    rating: float
+    content: str
+    thumbnail: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class CommentRequest(BaseModel):
     content: str
 

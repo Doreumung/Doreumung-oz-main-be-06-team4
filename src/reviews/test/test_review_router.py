@@ -1,23 +1,14 @@
 from datetime import datetime, timedelta
-from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
-from fastapi import UploadFile
-from sqlalchemy import Integer, cast, insert, select
+from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.datastructures import Headers
 
-from src.reviews.dtos.request import ReviewRequestBase
-from src.reviews.dtos.response import ReviewImageResponse, ReviewResponse
-from src.reviews.models.models import (
-    Comment,
-    ImageSourceType,
-    Like,
-    Review,
-    ReviewImage,
-)
+from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
+from src.reviews.dtos.response import GetReviewResponse, ReviewUpdateResponse
+from src.reviews.models.models import Comment, Like, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
     create_review_handler,
@@ -74,7 +65,7 @@ async def test_create_review_handler(
     assert result.thumbnail == body_data["thumbnail"]
 
     # 데이터베이스에서 리뷰 확인
-    saved_review = await async_session.get(Review, result.id)
+    saved_review = await async_session.get(Review, result.review_id)
     assert saved_review is not None
     assert saved_review.title == body_data["title"]
     assert saved_review.content == body_data["content"]
@@ -95,6 +86,7 @@ async def test_get_review_handler(
 ) -> None:
     user = setup_data
     travel_route = setup_travelroute
+    # 리뷰 데이터 생성
     review_data = {
         "id": 1,
         "user_id": user.id,
@@ -109,19 +101,44 @@ async def test_get_review_handler(
     await async_session.execute(insert(Review).values(review_data))
     await async_session.commit()
 
+    # 레포지토리 생성
     review_repo = ReviewRepo(async_session)
     user_repo = UserRepository(async_session)
 
+    # 핸들러 호출
     response = await get_review_handler(
         review_id=1,
         user_id=user.id,
         review_repo=review_repo,
         user_repo=user_repo,
     )
-    assert isinstance(response, ReviewResponse)
-    assert response.id == review_data["id"]
+
+    # 검증
+    assert isinstance(response, GetReviewResponse)  # 반환값 검증
+    assert response.review_id == review_data["id"]
     assert response.title == review_data["title"]
+    assert response.rating == review_data["rating"]
+    assert response.content == review_data["content"]
     assert response.nickname == user.nickname
+    assert response.travel_route_id == travel_route.id
+    assert response.travel_route == travel_route.title
+    assert response.regions == [travel_route.regions]  # type: ignore
+    assert response.themes == [travel_route.themes]  # type: ignore
+    assert response.like_count == 0
+    assert response.liked_by_user is False
+
+    # 검증
+    assert isinstance(response, GetReviewResponse)
+    assert response.review_id == review_data["id"]
+    assert response.title == review_data["title"]
+    assert response.rating == review_data["rating"]
+    assert response.content == review_data["content"]
+    assert response.nickname == user.nickname
+
+    # 새로 추가된 필드 검증
+    assert response.regions == ["제주시"]
+    assert response.themes == ["자연"]
+    assert response.travel_route == travel_route.title
 
 
 """
@@ -255,55 +272,62 @@ async def test_update_review_handler(
     user = setup_data
     travel_route = setup_travelroute
     review_id = 1
+
+    # 기존 리뷰 생성
+    initial_time = datetime.now(KST)
     review = Review(
         id=review_id,
-        user_id=user.id,
+        user_id=user.id,  # user_id를 올바르게 설정
         travel_route_id=travel_route.id,
         title="Test Review",
         content="This is a test review content.",
         rating=4.0,
-        created_at=datetime.now(KST),
-        updated_at=datetime.now(KST),
+        thumbnail="Old Thumbnail",
+        created_at=initial_time,
+        updated_at=initial_time,
     )
     async_session.add(review)
     await async_session.commit()
+
+    # 리뷰 레포지토리 생성
     review_repo = ReviewRepo(async_session)
+    user_repo = UserRepository(async_session)
 
-    body = ReviewRequestBase(
-        travel_route_id=travel_route.id,
-        title="Update Title",
-        content="Update Content",
+    # 업데이트 요청 데이터
+    body = ReviewUpdateRequest(
+        title="Updated Title",
+        content="Updated Content",
         rating=5.0,
+        thumbnail="Updated Thumbnail",
     )
-    image_urls = ["https://example.com/image1.jpg"]
-    files: List[UploadFile] = []
 
+    # 핸들러 호출
     response = await update_review_handler(
-        review_id=review_id,
+        review_id=review.id,
         body=body,
-        files=files,
-        image_urls=image_urls,
         review_repo=review_repo,
         user_id=user.id,
+        user_repo=user_repo,
     )
-    assert response.title == "Update Title"
-    assert response.content == "Update Content"
+
+    # 응답 데이터 검증
+    assert isinstance(response, ReviewUpdateResponse)
+    assert response.review_id == review.id
+    assert response.title == "Updated Title"
+    assert response.content == "Updated Content"
     assert response.rating == 5.0
+    assert response.thumbnail == "Updated Thumbnail"
+    assert response.nickname == user.nickname
+    assert response.updated_at > initial_time
 
     # 데이터베이스에서 업데이트 된 리뷰 확인
     updated_review = await async_session.get(Review, review_id)
     assert updated_review is not None
-    assert updated_review.title == "Update Title"
-    assert updated_review.content == "Update Content"
+    assert updated_review.title == "Updated Title"
+    assert updated_review.content == "Updated Content"
     assert updated_review.rating == 5.0
+    assert updated_review.thumbnail == "Updated Thumbnail"
     assert updated_review.updated_at > updated_review.created_at
-
-    # 이미지 URL 확인
-    images = await async_session.execute(select(ReviewImage).where(cast(ReviewImage.review_id, Integer) == review_id))
-    image_list = images.scalars().all()
-    assert len(image_list) == 1
-    assert image_list[0].filepath == "https://example.com/image1.jpg"
-    assert image_list[0].source_type == "link"
 
 
 """

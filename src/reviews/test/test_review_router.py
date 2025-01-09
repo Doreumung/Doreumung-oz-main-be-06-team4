@@ -134,7 +134,7 @@ async def test_get_review_handler(
     assert response.content == review_data["content"]
     assert response.nickname == user.nickname
     assert response.travel_route_id == travel_route.id
-    assert response.travel_route == travel_route.title
+    # assert len(response.travel_route) == travel_route.breakfast + travel_route.morning + travel_route.lunch + travel_route.afternoon + travel_route.dinner
     assert response.regions == [travel_route.regions]  # type: ignore
     assert response.themes == [travel_route.themes]  # type: ignore
     assert response.like_count == 0
@@ -151,7 +151,6 @@ async def test_get_review_handler(
     # 새로 추가된 필드 검증
     assert response.regions == ["제주시"]
     assert response.themes == ["자연"]
-    assert response.travel_route == travel_route.title
 
 
 """

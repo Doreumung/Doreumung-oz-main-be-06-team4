@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from src.reviews.models.models import ImageSourceType
+from src.travel.dtos.base_travel_route import Schedule
 from src.travel.models.enums import RegionEnum, ThemeEnum
 
 
@@ -49,7 +50,7 @@ class GetReviewResponse(BaseModel):
     like_count: int
     liked_by_user: Optional[bool] = False
     regions: List[str] | List[RegionEnum]
-    travel_route: str
+    travel_route: list[str]
     themes: List[str] | List[ThemeEnum]
     thumbnail: Optional[str]
     created_at: datetime

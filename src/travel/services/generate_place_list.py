@@ -185,13 +185,23 @@ def complete_place_list(regions: list[RegionEnum], themes: list[ThemeEnum], sche
                 random_eating_place_list(start_place=morning[0], end_place=None, place_list=eating_list)  # type: ignore
             )
         if schedule.lunch:
-            lunch = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)  # type: ignore
-            )
+            if afternoon:
+                lunch = PlaceInfo.model_validate(
+                    random_eating_place_list(start_place=morning[-1], end_place=afternoon[0], place_list=eating_list)  # type: ignore
+                )
+            else:
+                lunch = PlaceInfo.model_validate(
+                    random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)  # type: ignore
+                )
         if schedule.dinner:
-            dinner = PlaceInfo.model_validate(
-                random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)  # type: ignore
-            )
+            if afternoon:
+                dinner = PlaceInfo.model_validate(
+                    random_eating_place_list(start_place=afternoon[-1], end_place=None, place_list=eating_list)  # type: ignore
+                )
+            else:
+                dinner = PlaceInfo.model_validate(
+                    random_eating_place_list(start_place=morning[-1], end_place=None, place_list=eating_list)  # type: ignore
+                )
     schedule = ScheduleInfo(breakfast=breakfast, morning=morning, lunch=lunch, afternoon=afternoon, dinner=dinner)  # type: ignore
     return schedule  # type: ignore
 

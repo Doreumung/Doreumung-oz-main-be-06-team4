@@ -185,7 +185,10 @@ async def update_user_handler(
         parsed_birthday = date.fromisoformat(str(update_data.new_birthday))
         user.birthday = parsed_birthday
     if update_data.new_gender:
-        user.gender = update_data.new_gender
+        if update_data.new_gender == "none":
+            user.gender = None
+        else:
+            user.gender = update_data.new_gender  # type:ignore
 
     await user_repo.save(user=user)
     return UserMeResponse.model_validate(obj=user)

@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from src.user.models.models import Gender
 
@@ -18,7 +18,7 @@ class UpdateUserRequest(BaseModel):
     new_password: Optional[str] = None
     new_nickname: Optional[str] = None
     new_birthday: Optional[date] = None
-    new_gender: Optional[Gender] = None
+    new_gender: Optional[Gender | Literal["none"]] = None
 
 
 class UserLoginRequestBody(BaseModel):

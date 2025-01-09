@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import TravelRoute, TravelRoutePlace  # type: ignore
+from src.config.database.connection_async import get_async_session
 from src.travel.dtos.base_travel_route import (
     PlaceInfo,
     Schedule,
@@ -65,8 +66,25 @@ router = APIRouter(prefix="/api/v1/travelroute", tags=["Travel"])
 
 @router.post("", response_model=GenerateTravelRouteResponse)
 async def generator_travel_route(data: GenerateTravelRouteRequest) -> GenerateTravelRouteResponse:
+    # 전역변수로 미리 로드
+    all_place_list = None
+    async for session in get_async_session():
+        place_repository_in = PlaceRepository(session)
+        all_place_list = await place_repository_in.get_place_list()
+    all_eating_place_list = []
+    if all_place_list:
+        for place in all_place_list:
+            if place.theme == "식당":
+                all_place_list.remove(place)
+                all_eating_place_list.append(place)
     config = data.config
-    schedule = complete_place_list(regions=config.regions, themes=config.themes, schedule=config.schedule)
+    schedule = complete_place_list(
+        all_eating_place_list=all_eating_place_list,
+        all_place_list=all_place_list,  # type: ignore
+        regions=config.regions,
+        themes=config.themes,
+        schedule=config.schedule,
+    )
     return GenerateTravelRouteResponse(config=config, schedule=schedule)
 
 
@@ -74,6 +92,17 @@ async def generator_travel_route(data: GenerateTravelRouteRequest) -> GenerateTr
 async def re_generator_travel_route(
     data: ReGenerateTravelRouteRequest, place_repo: PlaceRepository = Depends()
 ) -> ReGenerateTravelRouteResponse:
+    # 전역변수로 미리 로드
+    all_place_list = None
+    async for session in get_async_session():
+        place_repository_in = PlaceRepository(session)
+        all_place_list = await place_repository_in.get_place_list()
+    all_eating_place_list = []
+    if all_place_list:
+        for place in all_place_list:
+            if place.theme == "식당":
+                all_place_list.remove(place)
+                all_eating_place_list.append(place)
     config = data.config
     schedule_info = data.schedule
     pined_place_list = []
@@ -86,7 +115,12 @@ async def re_generator_travel_route(
                 for place_info in getattr(schedule_info, i):
                     pined_place_list.append(await place_repo.get_by_id(place_info.place_id))
     schedule = re_complete_place_list(
-        regions=config.regions, themes=config.themes, schedule=config.schedule, pined_place_list=pined_place_list
+        all_eating_place_list=all_eating_place_list,
+        all_place_list=all_place_list,  # type:ignore
+        regions=config.regions,
+        themes=config.themes,
+        schedule=config.schedule,
+        pined_place_list=pined_place_list,
     )
     return ReGenerateTravelRouteResponse(config=config, schedule=schedule)
 
@@ -137,6 +171,9 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
     trps = travel_route.travel_route_places
     place_info_list = [(PlaceInfo.model_validate(trp.place), trp.priority) for trp in trps]
     place_info_list.sort(key=lambda x: x[1])
+    route = []
+    for i in place_info_list:
+        route.append(i[0].name)
     breakfast = None
     morning = None
     lunch = None
@@ -170,7 +207,7 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
     )
     config = TravelRouteConfig(regions=travel_route.regions, themes=travel_route.themes, schedule=schedule)
     return GetTravelRouteListResponse(
-        travel_route_id=travel_route.id, user_id=user_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
+        travel_route=route, travel_route_id=travel_route.id, user_id=user_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
     )
 
 

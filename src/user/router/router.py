@@ -184,6 +184,8 @@ async def update_user_handler(
         # 'user.birthday'에 'date' 객체를 직접 할당하지 않고, 올바르게 변환
         parsed_birthday = date.fromisoformat(str(update_data.new_birthday))
         user.birthday = parsed_birthday
+    if update_data.new_gender:
+        user.gender = update_data.new_gender
 
     await user_repo.save(user=user)
     return UserMeResponse.model_validate(obj=user)

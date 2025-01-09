@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
-from rich.region import Region
 
 from src.reviews.models.models import ImageSourceType
 from src.travel.models.enums import RegionEnum, ThemeEnum
@@ -74,13 +73,11 @@ class ReviewUpdateResponse(BaseModel):
 
 
 class CommentResponse(BaseModel):
-    id: int
-    user_id: str
+    comment_id: int
     review_id: int
     nickname: str
     content: str
     created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True

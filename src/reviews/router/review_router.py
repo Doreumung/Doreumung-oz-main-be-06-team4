@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
@@ -59,7 +59,7 @@ async def create_review_handler(
 
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=current_user_id,
+        user_id=user.id,
         travel_route_id=body.travel_route_id,
         title=body.title,
         rating=body.rating,
@@ -103,17 +103,9 @@ async def create_review_handler(
 )
 async def get_review_handler(
     review_id: int,
-    user_id: str = Depends(authenticate),
+    user_id: Optional[str] = Depends(authenticate),
     review_repo: ReviewRepo = Depends(),
-    user_repo: UserRepository = Depends(),
 ) -> GetReviewResponse:
-
-    user = await user_repo.get_user_by_id(user_id=user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
 
     query = (
         select(Review)
@@ -155,6 +147,11 @@ async def get_review_handler(
     if review.travel_route is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Travel route not found")
 
+    # 현재 사용자가 좋아요 했는지 확인
+    liked_by_user = False
+    if user_id:  # 로그인한 사용자에 대해서만 확인
+        liked_by_user = any(like.user_id == user_id for like in review.likes)
+
     return GetReviewResponse(
         review_id=review.id,
         nickname=review.user.nickname,
@@ -163,7 +160,7 @@ async def get_review_handler(
         rating=review.rating,
         content=review.content,
         like_count=len(review.likes),  # 좋아요 수
-        liked_by_user=any(like.user_id == user_id for like in review.likes),  # 현재 사용자가 좋아요 했는지 여부
+        liked_by_user=liked_by_user,  # 현재 사용자가 좋아요 했는지 여부
         regions=regions,
         travel_route=review.travel_route.title,
         themes=themes,
@@ -209,12 +206,14 @@ async def get_all_review_handler(
     # 리뷰와 좋아요 개수를 조인
     query = (
         select(
+            Review.id.label("review_id"),  # type: ignore
             Review.title.label("title"),  # type: ignore
             Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
             like_count_subquery.c.like_count.label("like_count"),
             comment_count_subquery.c.comment_count.label("comment_count"),
+            Review.thumbnail.label("thumbnail"),  # type: ignore
         )
         .join(User, User.id == Review.user_id)  # type: ignore
         .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
@@ -250,12 +249,14 @@ async def get_all_review_handler(
     # 리뷰 데이터 구성
     review_data = [
         {
-            "title": review.title,
-            "nickname": review.nickname,
-            "like_count": review.like_count,
-            "comment_count": review.comment_count,
-            "rating": review.rating,
-            "created_at": review.created_at.isoformat(),
+            "review_id": review["review_id"],
+            "title": review["title"],
+            "nickname": review["nickname"],
+            "like_count": review["like_count"],
+            "comment_count": review["comment_count"],
+            "rating": review["rating"],
+            "thumbnail": review["thumbnail"],
+            "created_at": review["created_at"].isoformat(),
         }
         for review in reviews
     ]

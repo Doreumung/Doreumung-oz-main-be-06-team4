@@ -7,6 +7,7 @@ from fastapi.routing import APIRouter
 from sqlalchemy import Integer, cast
 from sqlalchemy.sql import select
 
+from src import User
 from src.reviews.dtos.request import CommentRequest
 from src.reviews.dtos.response import (
     CommentResponse,
@@ -71,36 +72,34 @@ async def create_comment(
 # 특정 리뷰 댓글 목록 조회
 @comment_router.get(
     "/reviews/{review_id}/comment",
-    response_model=GetCommentResponse,
+    response_model=List[GetCommentResponse],
     status_code=status.HTTP_200_OK,
 )
 async def get_comment(
     review_id: int,
     comment_repo: CommentRepo = Depends(),
-    user_repo: UserRepository = Depends(),  # 사용자 정보를 조회하기 위한 repository
 ) -> List[GetCommentResponse]:
-    # 댓글 조회 쿼리
-    query = select(Comment).where(cast(Comment.review_id, Integer) == review_id)
+    # 댓글 및 작성자 정보 조회 쿼리
+    query = (
+        select(Comment.id.label("comment_id"), Comment.user_id, Comment.content, Comment.created_at, User.nickname)  # type: ignore
+        .join(User, User.id == Comment.user_id)
+        .where(Comment.review_id == review_id)  # 특정 리뷰의 댓글만 필터링
+        .order_by(Comment.id)
+    )
     result = await comment_repo.session.execute(query)
-    comments = result.scalars().all()
+    comments = result.mappings().all()  # 결과를 딕셔너리로 매핑
 
-    # 댓글 리스트 반환, 각 댓글마다 작성자의 nickname을 포함
-    response = []
-    for comment in comments:
-        # 댓글을 작성한 사용자 조회
-        user = await user_repo.get_user_by_id(user_id=comment.user_id)
-
-        # 사용자가 있을 경우 nickname을 추가, 없을 경우 None을 반환
-        response.append(
-            GetCommentResponse(
-                comment_id=comment.id,
-                nickname=user.nickname,  # type: ignore
-                content=comment.content,
-                created_at=comment.created_at,
-            )
+    # 배열 형태의 응답 구성
+    return [
+        GetCommentResponse(
+            comment_id=comment["comment_id"],
+            user_id=comment["user_id"],
+            nickname=comment["nickname"],
+            content=comment["content"],
+            created_at=comment["created_at"],
         )
-
-    return response
+        for comment in comments
+    ]
 
 
 # 댓글 수정

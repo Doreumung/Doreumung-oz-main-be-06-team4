@@ -90,12 +90,8 @@ async def test_get_comments(
     user = setup_data
     travel_route = setup_travelroute
 
-    # 사용자와 여행 정보를 데이터베이스에 추가
-    async_session.add(user)
-    await async_session.commit()
-
+    # 리뷰 생성 및 데이터베이스 추가
     review = Review(
-        id=1,
         user_id=user.id,
         travel_route_id=travel_route.id,
         title="Test review title",
@@ -108,7 +104,7 @@ async def test_get_comments(
     async_session.add(review)
     await async_session.commit()
 
-    # 댓글 객체 생성
+    # 댓글 생성 및 데이터베이스 추가
     comment1 = Comment(
         review_id=review.id,
         user_id=user.id,
@@ -123,33 +119,33 @@ async def test_get_comments(
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-
-    async_session.add(comment1)
-    async_session.add(comment2)
+    async_session.add_all([comment1, comment2])
     await async_session.commit()
 
-    # 요청 데이터 생성
+    # 댓글 조회를 위한 Repo 초기화
     comment_repo = CommentRepo(async_session)
-    user_repo = UserRepository(async_session)
 
     # 핸들러 호출
     response = await get_comment(
         review_id=review.id,
         comment_repo=comment_repo,
-        user_repo=user_repo,
     )
 
     # 검증
-    assert len(response) == 2
+    assert len(response) == 2  # 댓글 개수 검증
     assert response[0].comment_id == comment1.id
+    assert response[0].user_id == comment1.user_id
     assert response[0].content == comment1.content
-    assert response[1].comment_id == comment2.id
-    assert response[1].content == comment2.content
     assert response[0].nickname == user.nickname
+    assert response[1].comment_id == comment2.id
+    assert response[1].user_id == comment2.user_id
+    assert response[1].content == comment2.content
     assert response[1].nickname == user.nickname
     # 생성된 시간 검증
     assert isinstance(response[0].created_at, datetime)
     assert isinstance(response[1].created_at, datetime)
+    # 정렬 확인 (created_at 기준)
+    assert response[0].created_at <= response[1].created_at
 
 
 @pytest.mark.asyncio

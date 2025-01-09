@@ -59,7 +59,7 @@ async def create_review_handler(
 
     # 새로운 리뷰 객체 생성
     new_review = Review(
-        user_id=current_user_id,
+        user_id=user.id,
         travel_route_id=body.travel_route_id,
         title=body.title,
         rating=body.rating,
@@ -206,12 +206,14 @@ async def get_all_review_handler(
     # 리뷰와 좋아요 개수를 조인
     query = (
         select(
+            Review.id.label("review_id"),  # type: ignore
             Review.title.label("title"),  # type: ignore
             Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
             like_count_subquery.c.like_count.label("like_count"),
             comment_count_subquery.c.comment_count.label("comment_count"),
+            Review.thumbnail.label("thumbnail"),  # type: ignore
         )
         .join(User, User.id == Review.user_id)  # type: ignore
         .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
@@ -247,12 +249,14 @@ async def get_all_review_handler(
     # 리뷰 데이터 구성
     review_data = [
         {
-            "title": review.title,
-            "nickname": review.nickname,
-            "like_count": review.like_count,
-            "comment_count": review.comment_count,
-            "rating": review.rating,
-            "created_at": review.created_at.isoformat(),
+            "review_id": review["review_id"],
+            "title": review["title"],
+            "nickname": review["nickname"],
+            "like_count": review["like_count"],
+            "comment_count": review["comment_count"],
+            "rating": review["rating"],
+            "thumbnail": review["thumbnail"],
+            "created_at": review["created_at"].isoformat(),
         }
         for review in reviews
     ]

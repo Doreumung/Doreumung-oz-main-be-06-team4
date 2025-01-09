@@ -38,7 +38,7 @@ class GetTravelRouteOneResponse(BaseModel):
 
 
 class GetTravelRouteListResponse(BaseModel):
-    travelroute_id: int
+    travel_route_id: int
     user_id: str
     title: str
     schedule: ScheduleInfo
@@ -49,5 +49,5 @@ class GetTravelRouteListPaginationResponse(BaseModel):
     page: int
     size: int
     total_pages: int
-    total_travelroutes: int
+    total_travel_routes: int
     travel_list: list[GetTravelRouteListResponse]

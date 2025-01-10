@@ -42,6 +42,7 @@ class ReviewResponse(BaseModel):
 
 class GetReviewResponse(BaseModel):
     review_id: int
+    user_id: str
     nickname: str
     travel_route_id: int | None
     title: str

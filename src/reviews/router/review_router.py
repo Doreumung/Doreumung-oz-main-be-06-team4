@@ -23,7 +23,7 @@ from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
-from src.user.services.authentication import authenticate
+from src.user.services.authentication import authenticate, authenticate_optional
 
 # 라우터 정의
 review_router = APIRouter(prefix="/api/v1", tags=["Reviews"])
@@ -105,7 +105,7 @@ async def create_review_handler(
 )
 async def get_review_handler(
     review_id: int,
-    user_id: Optional[str] = Depends(authenticate),
+    user_id: Optional[str] = Depends(authenticate_optional),
     review_repo: ReviewRepo = Depends(),
 ) -> GetReviewResponse:
 

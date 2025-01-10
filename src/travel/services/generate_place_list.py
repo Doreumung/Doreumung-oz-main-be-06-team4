@@ -153,9 +153,15 @@ def place_list_in_radius(start_place: PlaceInfo, radius: int, place_list: list[P
 
 # service 함수
 def random_eating_place_list(start_place: PlaceInfo, end_place: PlaceInfo | None, place_list: list[Place]) -> Place:
-    filtered_list = place_list_in_radius(start_place, 3, place_list)
-    if end_place is not None:
-        place_list_close_line(start_place, end_place, filtered_list)
+    filtered_list = None
+    plus = 0
+    while not filtered_list:
+        filtered_list = place_list_in_radius(start_place, 3 + plus, place_list)
+        if end_place is not None:
+            place_list_close_line(start_place, end_place, filtered_list)
+        plus += 1
+        if plus > 10:
+            break
 
     choice_place = random.choice(filtered_list)
     place_list.remove(choice_place)

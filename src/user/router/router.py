@@ -65,7 +65,7 @@ async def login_handler(
     user_repo: UserRepository = Depends(),
 ) -> JWTResponse:
     user = await user_repo.get_user_by_email(email=body.email)  # get도 비동기 처리
-    if user is None:
+    if user is None or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
@@ -207,6 +207,7 @@ async def update_user_handler(
 
 @router.delete("/user/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_handler(
+    response: Response,
     user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> None:
@@ -226,6 +227,11 @@ async def delete_user_handler(
     user.is_deleted = True
     user.deleted_at = datetime.now(timezone(timedelta(hours=9))) + timedelta(days=3)
     await user_repo.save(user=user)
+    # Access Token 쿠키 삭제
+    response.delete_cookie(key="access_token", path="/", domain=None)
+
+    # Refresh Token 쿠키 삭제
+    response.delete_cookie(key="refresh_token", path="/", domain=None)
     return
 
 

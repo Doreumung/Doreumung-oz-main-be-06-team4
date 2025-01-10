@@ -159,6 +159,7 @@ async def get_review_handler(
 
     return GetReviewResponse(
         review_id=review.id,
+        user_id=review.user_id,
         nickname=review.user.nickname,
         travel_route_id=review.travel_route.id,
         title=review.title,

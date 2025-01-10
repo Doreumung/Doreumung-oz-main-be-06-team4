@@ -129,6 +129,7 @@ async def test_get_review_handler(
     # 검증
     assert isinstance(response, GetReviewResponse)  # 반환값 검증
     assert response.review_id == review_data["id"]
+    assert response.user_id == user.id
     assert response.title == review_data["title"]
     assert response.rating == review_data["rating"]
     assert response.content == review_data["content"]
@@ -143,6 +144,7 @@ async def test_get_review_handler(
     # 검증
     assert isinstance(response, GetReviewResponse)
     assert response.review_id == review_data["id"]
+    assert response.user_id == review_data["user_id"]
     assert response.title == review_data["title"]
     assert response.rating == review_data["rating"]
     assert response.content == review_data["content"]

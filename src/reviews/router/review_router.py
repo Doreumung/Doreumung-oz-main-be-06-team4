@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
-from sqlalchemy import Integer, String, cast, func
+from sqlalchemy import Integer, String, cast, delete, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
@@ -17,7 +17,8 @@ from src.reviews.dtos.response import (
     ReviewUpdateResponse,
 )
 from src.reviews.models.models import Comment, Like, Review
-from src.reviews.repo.review_repo import ReviewRepo
+from src.reviews.repo.review_repo import CommentRepo, ReviewRepo
+from src.reviews.router.comment_router import delete_comment
 from src.reviews.services.review_utils import validate_order_by
 from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
@@ -365,6 +366,10 @@ async def delete_review_handler(
 
     if review.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
+
+    # 댓글 삭제
+    delete_comments_query = delete(Comment).where(Comment.review_id == review_id)  # type: ignore
+    await review_repo.session.execute(delete_comments_query)
 
     images = await review_repo.get_image_by_id(review_id)
     for image in images:

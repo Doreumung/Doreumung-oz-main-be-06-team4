@@ -24,6 +24,9 @@ class SocialProvider(StrEnum):
     GOOGLE = "google"
 
 
+KST = timezone(timedelta(hours=9))
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, sa_type=String(36))  # type: ignore
@@ -37,10 +40,18 @@ class User(SQLModel, table=True):
     social_provider: Optional[SocialProvider] = Field(sa_type=SqlEnum(SocialProvider), nullable=True)  # type: ignore
     is_deleted: Optional[bool] = Field(default=False, nullable=True)
     deleted_at: Optional[datetime] = Field(nullable=True)
-    created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
-    updated_at: datetime = Field(
-        default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
     )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column_kwargs={"onupdate": lambda: datetime.now(KST)},
+    )
+
     travel_routes: list["TravelRoute"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})  # type: ignore
     likes: list["Like"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}

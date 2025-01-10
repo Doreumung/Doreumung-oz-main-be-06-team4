@@ -1,11 +1,11 @@
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.config import settings
@@ -99,3 +99,25 @@ def authenticate(
         )
 
     return payload["user_id"]
+
+
+def authenticate_optional(
+    auth_header: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+) -> Optional[str]:
+    if auth_header is None:  # 인증 헤더가 없는 경우
+        return None
+
+    try:
+        payload: JWTPayload = decode_access_token(access_token=auth_header.credentials)
+
+        # token 만료 검사
+        EXPIRY_SECONDS = 60 * 60 * 24 * 7
+        if payload["exp"] + EXPIRY_SECONDS < time.time():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+
+        return payload["user_id"]
+    except Exception:
+        return None

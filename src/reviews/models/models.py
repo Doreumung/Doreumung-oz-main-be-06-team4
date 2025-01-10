@@ -16,12 +16,26 @@ class ImageSourceType(StrEnum):
     LINK = "link"
 
 
+KST = timezone(timedelta(hours=9))
+
+
 class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
     id: int = Field(default=None, primary_key=True)
     review_id: int = Field(foreign_key="reviews.id", nullable=True)
     filepath: str = Field(sa_column=Column(Text, nullable=True))
     source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=True)  # type: ignore # 이미지 출처 (업로드/링크)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column_kwargs={"onupdate": lambda: datetime.now(KST)},
+    )
 
     # 부모 관계
     review: Optional["Review"] = Relationship(back_populates="images")
@@ -31,7 +45,6 @@ class ReviewImage(SQLModel, table=True):
 리뷰와 이미지를 1:N으로 정의해서 한 리뷰에 여러 이미지를 넣도록 테이블 정의
 """
 
-KST = timezone(timedelta(hours=9))
 
 if TYPE_CHECKING:
     from src.travel.models.travel_route_place import TravelRoute
@@ -74,7 +87,11 @@ class Like(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
-    created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
 
     # 관계 정의
     user: Optional["User"] = Relationship(back_populates="likes", sa_relationship_kwargs={"lazy": "select"})
@@ -91,9 +108,16 @@ class Comment(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=False)
     content: str = Field(nullable=False)
-    created_at: datetime = Field(default_factory=func.now, nullable=False, sa_type=DateTime)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
     updated_at: datetime = Field(
-        default_factory=func.now, nullable=False, sa_type=DateTime, sa_column_kwargs={"onupdate": func.now()}
+        default_factory=lambda: datetime.now(KST),
+        nullable=False,
+        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_column_kwargs={"onupdate": lambda: datetime.now(KST)},
     )
 
     # 관계 정의

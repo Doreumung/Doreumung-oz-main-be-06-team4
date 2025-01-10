@@ -39,7 +39,7 @@ class User(SQLModel, table=True):
     is_superuser: Optional[bool] = Field(default=False, nullable=True)
     social_provider: Optional[SocialProvider] = Field(sa_type=SqlEnum(SocialProvider), nullable=True)  # type: ignore
     is_deleted: Optional[bool] = Field(default=False, nullable=True)
-    deleted_at: Optional[datetime] = Field(nullable=True)
+    deleted_at: Optional[datetime] = Field(nullable=True, sa_type=DateTime(timezone=True))  # type: ignore
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(KST),
         nullable=False,

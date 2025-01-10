@@ -13,6 +13,8 @@ class ReviewImageResponse(BaseModel):
     review_id: int
     filepath: str
     source_type: ImageSourceType
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -21,6 +23,9 @@ class ReviewImageResponse(BaseModel):
 class UploadImageResponse(BaseModel):
     uploaded_image: ReviewImageResponse
     all_images: List[ReviewImageResponse]
+
+    class Config:
+        from_attributes = True
 
 
 class ReviewResponse(BaseModel):

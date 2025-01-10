@@ -4,6 +4,7 @@ from typing import AsyncGenerator, Generator, Optional
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import Review  # type: ignore
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
 
@@ -41,6 +42,25 @@ async def setup_travelroute(async_session: AsyncSession, setup_data: User) -> Op
     async_session.add(route)
     await async_session.commit()
     return await async_session.get(TravelRoute, 1)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def setup_review(
+    async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
+) -> Optional[Review]:
+    user = setup_data
+    travel_route = setup_travelroute
+    review = Review(
+        id=1,
+        user_id=user.id,
+        travel_route_id=travel_route.id,
+        title="Test review",
+        rating=4.0,
+        content="Test content",
+    )
+    async_session.add(review)
+    await async_session.commit()
+    return await async_session.get(Review, 1)
 
 
 KST = timezone(timedelta(hours=9))

@@ -74,7 +74,9 @@ class Review(SQLModel, table=True):
     )
 
     # 관계 정의
-    images: List["ReviewImage"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
+    images: List["ReviewImage"] = Relationship(
+        back_populates="review", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}
+    )
     likes: List["Like"] = Relationship(back_populates="review", sa_relationship_kwargs={"lazy": "joined"})
     comments: List["Comment"] = Relationship(
         back_populates="review", sa_relationship_kwargs={"lazy": "joined", "cascade": "all, delete-orphan"}

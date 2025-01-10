@@ -382,6 +382,21 @@ async def test_delete_review_handler(
     async_session.add(review)
     await async_session.commit()
 
+    # 댓글 생성
+    comments = [
+        Comment(
+            id=i,
+            review_id=review_id,
+            user_id=user.id,
+            content=f"Test comment {i}",
+            created_at=datetime.now(KST),
+            updated_at=datetime.now(KST),
+        )
+        for i in range(1, 4)  # 댓글 3개 생성
+    ]
+    async_session.add_all(comments)
+    await async_session.commit()
+
     image = ReviewImage(id=1, review_id=review_id, source_type="upload", filepath="/tmp/test_image.jpg")
     async_session.add(image)
     await async_session.commit()
@@ -403,6 +418,11 @@ async def test_delete_review_handler(
     # 삭제 확인
     deleted_review = await async_session.get(Review, review_id)
     assert deleted_review is None
+    # 댓글 삭제 확인
+    for comment in comments:
+        deleted_comment = await async_session.get(Comment, comment.id)
+        assert deleted_comment is None
+
     # 이미지 삭제 확인
     deleted_image = await async_session.get(ReviewImage, image.id)
     assert deleted_image is None

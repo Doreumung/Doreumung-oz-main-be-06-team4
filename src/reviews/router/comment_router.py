@@ -33,7 +33,7 @@ async def create_comment(
     review_id: int,
     body: CommentRequest,
     user_id: str = Depends(authenticate),
-    user_repo: UserRepository = Depends(CommentRepo),
+    user_repo: UserRepository = Depends(),
     comment_repo: CommentRepo = Depends(),
 ) -> CommentResponse:
     # 사용자 확인
@@ -58,6 +58,7 @@ async def create_comment(
         user_id=user.id,
         review_id=review.id,
         content=body.content,
+        created_at=datetime.now(),
     )
     await comment_repo.create_comment(comment=new_comment)
     return CommentResponse(

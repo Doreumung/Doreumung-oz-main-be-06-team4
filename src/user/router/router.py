@@ -130,6 +130,17 @@ async def logout_handler(body: UserLogoutRequestBody, response: Response) -> Non
     response.delete_cookie(key="refresh_token", path="/", domain=None)
 
 
+@router.post("/user/pwcheck")
+async def pwcheck_handler(
+    user_id: str = Depends(authenticate), password: str = Body(...), user_repo: UserRepository = Depends()
+) -> dict[str, bool]:
+    user = await user_repo.get_user_by_id(user_id=user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    check = check_password(password, user.password)
+    return {"authentication": check}
+
+
 # 내 정보 조회
 @router.get("/user/me", response_model=UserInfoResponse)
 async def get_me_handler(

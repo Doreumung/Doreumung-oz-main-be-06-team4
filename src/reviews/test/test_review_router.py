@@ -176,7 +176,6 @@ async def test_get_all_review_handler(
             title=f"Review {i}",
             rating=4.5,
             content="This is a test review",
-            comment_count=3,
             created_at=datetime.now() - timedelta(minutes=i),
             updated_at=datetime.now(),
         )
@@ -206,7 +205,7 @@ async def test_get_all_review_handler(
     user.nickname = "test_nickname"
     async_session.add(user)
 
-    # 커밋
+    # 데이터베이스 커밋
     await async_session.commit()
 
     # 레포지토리 인스턴스 생성
@@ -230,19 +229,20 @@ async def test_get_all_review_handler(
     # 응답 데이터 검증
     assert response["page"] == page
     assert response["size"] == size
-    assert response["total_pages"] == 3
+    assert response["total_pages"] == 3  # 총 리뷰 개수 15, 페이지당 5개, 총 3페이지
     assert response["total_reviews"] == len(reviews)
     assert len(response["reviews"]) == size
 
     # 첫 번째 리뷰 데이터 검증
-    assert response["reviews"][0]["title"] == "Review 1"
+    assert response["reviews"][0]["title"] == "Review 1"  # 최신 리뷰 확인
+    assert response["reviews"][0]["user_id"] == str(user.id)
     assert response["reviews"][0]["nickname"] == "test_nickname"
     assert "created_at" in response["reviews"][0]
     assert response["reviews"][0]["like_count"] == 1  # 첫 리뷰 좋아요 수
-    assert response["reviews"][0]["comment_count"] == 3
+    assert response["reviews"][0]["comment_count"] == 3  # 첫 리뷰 댓글 수
 
     # 정렬 검증 (내림차순 created_at)
-    created_times = [datetime.fromisoformat(r["created_at"]) for r in response["reviews"]]
+    created_times = [r["created_at"] for r in response["reviews"]]
     assert all(created_times[i] >= created_times[i + 1] for i in range(len(created_times) - 1))
 
     # 페이지네이션 추가 테스트 (2페이지)
@@ -266,8 +266,19 @@ async def test_get_all_review_handler(
         review_repo=review_repo,
     )
     assert response_page_3["page"] == 3
-    assert len(response_page_3["reviews"]) == 5
+    assert len(response_page_3["reviews"]) == 5  # 마지막 페이지에 5개 리뷰
     assert response_page_3["reviews"][0]["title"] == "Review 11"
+
+    # 경계값 테스트 (없는 페이지)
+    response_page_4 = await get_all_review_handler(
+        page=4,  # 없는 페이지
+        size=size,
+        order_by=order_by,
+        order=order,
+        review_repo=review_repo,
+    )
+    assert response_page_4["page"] == 4
+    assert len(response_page_4["reviews"]) == 0  # 데이터 없음
 
 
 """

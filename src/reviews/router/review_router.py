@@ -212,6 +212,7 @@ async def get_all_review_handler(
     query = (
         select(
             Review.id.label("review_id"),  # type: ignore
+            Review.user_id.label("user_id"),  # type: ignore
             Review.title.label("title"),  # type: ignore
             Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
@@ -242,7 +243,7 @@ async def get_all_review_handler(
         query = query.order_by(order_column.desc())
 
     # 총 리뷰 개수 계산
-    total_reviews_result = await review_repo.session.execute(select(func.count()).select_from(query.subquery()))
+    total_reviews_result = await review_repo.session.execute(select(func.count()).select_from(Review))
     total_reviews = total_reviews_result.unique().scalar_one_or_none() or 0
 
     # 페이지네이션 처리
@@ -255,13 +256,14 @@ async def get_all_review_handler(
     review_data = [
         {
             "review_id": review["review_id"],
+            "user_id": review["user_id"],
             "title": review["title"],
             "nickname": review["nickname"],
             "like_count": review["like_count"],
             "comment_count": review["comment_count"],
             "rating": review["rating"],
             "thumbnail": review["thumbnail"],
-            "created_at": review["created_at"].isoformat(),
+            "created_at": review["created_at"],
         }
         for review in reviews
     ]

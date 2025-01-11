@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -8,8 +10,10 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import Integer, String, cast, delete, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
+from uvicorn.protocols.utils import ClientDisconnected
 
 from src import TravelRoute, TravelRoutePlace  # type: ignore
+from src.config.database.connection_async import get_async_session
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
 from src.reviews.dtos.response import (
     GetReviewResponse,
@@ -197,15 +201,14 @@ async def get_all_review_handler(
     # 리뷰와 좋아요 개수 계산 서브 쿼리
     like_count_subquery = (
         select(cast(Review.id, Integer), func.count("*").label("like_count"))
-        .outerjoin(Like, cast(Review.id, Integer) == Like.review_id)
+        .join(Like, cast(Review.id, Integer) == Like.review_id)
         .group_by(cast(Review.id, Integer))
         .subquery()
     )
-
     # 댓글 개수 계산 서브 쿼리
     comment_count_subquery = (
         select(cast(Review.id, Integer), func.count("*").label("comment_count"))
-        .outerjoin(Comment, cast(Review.id, Integer) == Comment.review_id)
+        .join(Comment, cast(Review.id, Integer) == Comment.review_id)
         .group_by(cast(Review.id, Integer))
         .subquery()
     )
@@ -253,7 +256,6 @@ async def get_all_review_handler(
     paginated_query = query.offset(offset).limit(size)
     result = await review_repo.session.execute(paginated_query)
     reviews = result.unique().mappings().all()
-
     # 리뷰 데이터 구성
     review_data = [
         {
@@ -261,15 +263,14 @@ async def get_all_review_handler(
             "user_id": review["user_id"],
             "title": review["title"],
             "nickname": review["nickname"],
-            "like_count": review["like_count"],
-            "comment_count": review["comment_count"],
+            "like_count": review["like_count"] if review["like_count"] else 0,
+            "comment_count": review["comment_count"] if review["comment_count"] else 0,
             "rating": review["rating"],
             "thumbnail": review["thumbnail"],
             "created_at": review["created_at"],
         }
         for review in reviews
     ]
-
     return {
         "page": page,
         "size": size,
@@ -378,6 +379,3 @@ async def delete_review_handler(
     await review_repo.delete_review(review)
 
     return {"message": "Review deleted"}
-
-
-#

@@ -18,6 +18,10 @@ class LikeRepo:
         await self.session.refresh(like)
         return like
 
+    async def get_by_user_review_id(self, review_id: int, user_id: str) -> Optional[Like]:
+        like = await self.session.execute(select(Like).where(Like.review_id == review_id, Like.user_id == user_id))
+        return like.scalars().one_or_none()
+
     async def get_by_id(self, like_id: int) -> Optional[Like]:
         place = await self.session.get(Like, like_id)
         if not place:
@@ -28,9 +32,5 @@ class LikeRepo:
         result = await self.session.execute(select(Like))
         return list(result.scalars().all())
 
-    async def delete(self, like_id: int) -> None:
-        result = await self.session.get(Like, like_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Item not found")
-        await self.session.delete(result)
-        await self.session.commit()
+    async def delete(self, like: Like) -> None:
+        await self.session.delete(like)

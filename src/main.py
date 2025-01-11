@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer
 
 from src.reviews.router.comment_router import comment_router
 from src.reviews.router.image_router import image_router
+from src.reviews.router.like_router import like_router
 from src.reviews.router.review_router import review_router
 from src.travel.router.travel_router import router as travel_router
 from src.user.router.router import router
@@ -27,6 +28,7 @@ app.include_router(travel_router)
 app.include_router(review_router)
 app.include_router(comment_router)
 app.include_router(image_router)
+app.include_router(like_router)
 
 
 @app.get("/")

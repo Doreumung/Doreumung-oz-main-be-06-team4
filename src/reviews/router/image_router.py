@@ -27,7 +27,6 @@ UPLOAD_DIR.mkdir(exist_ok=True)  # Ensure the upload directory exists
 
 @image_router.post("/upload", response_model=UploadImageResponse)
 async def upload_images(
-    image_id: int,
     review_id: int,
     file: Optional[UploadFile] = None,
     url: Optional[str] = None,
@@ -40,7 +39,7 @@ async def upload_images(
         raise HTTPException(status_code=404, detail="User not found")
 
     # 검증: 리뷰 존재 여부 확인
-    query = select(Review).where(Review.id == image_id)
+    query = select(Review).where(Review.id == review_id)
     result = await image_repo.session.execute(query)
     review = result.unique().scalar_one_or_none()
     if not review:

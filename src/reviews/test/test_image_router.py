@@ -66,7 +66,6 @@ async def test_upload_images(
 
     # 엔드포인트 호출
     response = await upload_images(
-        image_id=1,
         review_id=review.id,
         file=file,
         url=None,
@@ -138,7 +137,6 @@ async def test_upload_image_from_url(
 
     # 엔드포인트 호출
     response = await upload_images(
-        image_id=1,
         review_id=review.id,
         file=None,
         url=test_url,

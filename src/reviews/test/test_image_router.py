@@ -13,12 +13,7 @@ from src import TravelRoute, User  # type: ignore
 from src.reviews.dtos.response import ReviewImageResponse, UploadImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
-from src.reviews.router.image_router import (
-    get_image_by_id,
-    get_images_by_review,
-    update_images,
-    upload_images,
-)
+from src.reviews.router.image_router import upload_images
 from src.user.repo.repository import UserRepository
 
 
@@ -158,166 +153,6 @@ async def test_upload_image_from_url(
     assert saved_images[0].source_type == "link"
 
 
-# 이미지 조회
-
-
-@pytest.mark.asyncio
-async def test_get_images_by_review(
-    async_session: AsyncSession,
-    setup_data: User,
-    setup_travelroute: TravelRoute,
-) -> None:
-    user = setup_data
-    travel_route = setup_travelroute
-    seoul_tz = timezone(timedelta(hours=9))
-    async_session.add(user)
-    await async_session.commit()
-
-    # 리뷰 생성
-    review = Review(
-        id=1,
-        user_id=user.id,
-        travel_route_id=travel_route.id,
-        title="Test review",
-        rating=4.0,
-        content="Test content",
-        created_at=datetime.now(seoul_tz),
-        updated_at=datetime.now(seoul_tz),
-    )
-    async_session.add(review)
-    await async_session.commit()
-
-    # 이미지 생성
-    images = [
-        ReviewImage(
-            id=i,
-            review_id=review.id,
-            filepath=f"/uploads/test_image_{i}.jpg",
-            source_type="upload",
-        )
-        for i in range(1, 4)
-    ]
-    async_session.add_all(images)
-    await async_session.commit()
-
-    # 레포지토리 생성
-    review_repo = ReviewRepo(async_session)
-
-    # 테스트 실행
-    response = await get_images_by_review(review_id=review.id, image_repo=review_repo)
-
-    # 검증
-    assert len(response) == 3
-    assert isinstance(response[0], ReviewImageResponse)
-    assert response[0].review_id == review.id
-    assert response[0].filepath == "/uploads/test_image_1.jpg"
-
-
-@pytest.mark.asyncio
-async def test_get_image_by_id(
-    async_session: AsyncSession,
-    setup_review: Review,
-) -> None:
-
-    review = setup_review
-
-    # 이미지 생성
-    image = ReviewImage(
-        id=1,
-        review_id=review.id,
-        filepath="/uploads/test_image_1.jpg",
-        source_type="upload",
-    )
-    async_session.add(image)
-    await async_session.commit()
-
-    # 레포지토리 생성
-    review_repo = ReviewRepo(async_session)
-
-    # 테스트 실행
-    response = await get_image_by_id(image_id=image.id, image_repo=review_repo)
-
-    # 검증
-    assert response.id == image.id
-    assert response.review_id == review.id
-    assert response.filepath == "/uploads/test_image_1.jpg"
-    assert response.source_type == "upload"
-
-
-# 이미지 수정 테스트
-@pytest.mark.asyncio
-async def test_update_images(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
-    user = setup_data
-    travel_route = setup_travelroute
-    review = Review(
-        id=100,  # review_id를 정수로 설정
-        user_id=user.id,
-        travel_route_id=travel_route.id,
-        title="Test review",
-        rating=4.0,
-        content="Test content",
-    )
-    async_session.add(review)
-    await async_session.commit()
-
-    # 임시 디렉토리 설정
-    uploads_dir = Path("/tmp/uploads")
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
-    # 기존 이미지 생성
-    existing_file_path = uploads_dir / "existing_image.jpg"
-    existing_image = ReviewImage(
-        id=1,
-        review_id=review.id,
-        filepath=str(existing_file_path),  # 경로를 정확히 설정
-        source_type=ImageSourceType.UPLOAD.value,
-    )
-    async_session.add(existing_image)
-    await async_session.commit()
-
-    # 기존 파일 생성 및 내용 추가
-    existing_file_path.touch()
-    with existing_file_path.open("wb") as f:
-        f.write(b"existing content")
-
-    # 가상 파일 생성
-    test_file_path = Path("/tmp/test_image.jpg")
-    test_file_path.touch()  # 파일 생성
-    with test_file_path.open("wb") as f:
-        f.write(b"test content")  # 테스트 내용 추가
-
-    # UploadFile 객체 생성
-    new_file = UploadFile(filename="test_image.jpg", file=test_file_path.open("rb"))
-
-    # 레포지토리 생성
-    review_repo = ReviewRepo(async_session)
-    user_repo = UserRepository(async_session)
-
-    # 이미지 업데이트 호출
-    response = await update_images(
-        image_id=existing_image.id,
-        file=new_file,
-        url=None,
-        user_id=user.id,
-        image_repo=review_repo,
-        user_repo=user_repo,
-    )
-
-    # 검증: 파일 경로
-    assert response.uploaded_image.filepath.endswith("_test_image.jpg")
-
-    # 검증: 파일 내용
-    updated_file_path = Path(response.uploaded_image.filepath)
-    with updated_file_path.open("rb") as f:
-        updated_file_content = f.read()
-    assert hashlib.md5(updated_file_content).hexdigest() == hashlib.md5(b"test content").hexdigest()
-
-    # Cleanup
-    existing_file_path.unlink(missing_ok=True)
-    updated_file_path.unlink(missing_ok=True)
-    test_file_path.unlink(missing_ok=True)
-
-
 # 삭제 테스트
 @pytest.mark.asyncio
 async def test_delete_images(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
@@ -340,19 +175,28 @@ async def test_delete_images(async_session: AsyncSession, setup_data: User, setu
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
     # 테스트 이미지 생성
-    test_file_path = uploads_dir / "test_image.jpg"
-    test_file_path.touch()
-    with test_file_path.open("wb") as f:
-        f.write(b"test content")
+    test_file_path_1 = uploads_dir / "test_image_1.jpg"
+    test_file_path_2 = uploads_dir / "test_image_2.jpg"
+    test_file_path_1.touch()
+    test_file_path_2.touch()
+    with test_file_path_1.open("wb") as f1, test_file_path_2.open("wb") as f2:
+        f1.write(b"test content 1")
+        f2.write(b"test content 2")
 
     # 데이터베이스에 ReviewImage 추가
-    image = ReviewImage(
+    image_1 = ReviewImage(
         id=1,
         review_id=review.id,
-        filepath=str(test_file_path),
+        filepath=str(test_file_path_1),
         source_type=ImageSourceType.UPLOAD.value,
     )
-    async_session.add(image)
+    image_2 = ReviewImage(
+        id=2,
+        review_id=review.id,
+        filepath=str(test_file_path_2),
+        source_type=ImageSourceType.UPLOAD.value,
+    )
+    async_session.add_all([image_1, image_2])
     await async_session.commit()
 
     # 레포지토리 인스턴스 생성
@@ -360,42 +204,58 @@ async def test_delete_images(async_session: AsyncSession, setup_data: User, setu
     user_repo = UserRepository(async_session)
 
     # DELETE 엔드포인트 시뮬레이션
-    async def delete_images_mock(image_id: int, user_id: str) -> dict[str, Any]:
+    async def delete_images_mock(file_names: list[str], user_id: str) -> dict[str, Any]:
         # 유저 확인
         user = await user_repo.get_user_by_id(user_id=user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # 이미지 확인
-        query = select(ReviewImage).where(ReviewImage.id == image_id)  # type: ignore
-        result = await review_repo.session.execute(query)
-        existing_image = result.scalar_one_or_none()
-        if not existing_image:
-            raise HTTPException(status_code=404, detail="Image not found")
+        deleted_files = []
+        not_found_files = []
 
-        # 파일 삭제
-        if existing_image.source_type == ImageSourceType.UPLOAD.value:
-            file_path = Path(existing_image.filepath)
-            if file_path.exists():
-                file_path.unlink()
+        for file_name in file_names:
+            # 파일명으로 이미지 검색
+            query = select(ReviewImage).where(ReviewImage.filepath.like(f"%{file_name}"))  # type: ignore
+            result = await review_repo.session.execute(query)
+            existing_image = result.scalar_one_or_none()
 
-        # 데이터베이스에서 이미지 삭제
-        await review_repo.session.delete(existing_image)
-        await review_repo.session.commit()
+            if not existing_image:
+                not_found_files.append(file_name)
+                continue
 
-        return {"message": "Image deleted successfully"}  # 반환값 추가
+            # 파일 삭제
+            if existing_image.source_type == ImageSourceType.UPLOAD.value:
+                file_path = Path(existing_image.filepath)
+                if file_path.exists():
+                    file_path.unlink()
+
+            # 데이터베이스에서 이미지 삭제
+            await review_repo.session.delete(existing_image)
+            await review_repo.session.commit()
+            deleted_files.append(file_name)
+
+        return {
+            "message": "Image deletion completed",
+            "deleted_files": deleted_files,
+            "not_found_files": not_found_files,
+        }
 
     # 테스트 실행
-    response = await delete_images_mock(image_id=image.id, user_id=user.id)
+    file_names = ["test_image_1.jpg", "test_image_2.jpg"]
+    response = await delete_images_mock(file_names=file_names, user_id=user.id)
 
     # 응답 검증
-    assert response == {"message": "Image deleted successfully"}
+    assert response["message"] == "Image deletion completed"
+    assert "test_image_1.jpg" in response["deleted_files"]
+    assert "test_image_2.jpg" in response["deleted_files"]
+    assert not response["not_found_files"]
 
     # 파일 삭제 검증
-    assert not test_file_path.exists()
+    assert not test_file_path_1.exists()
+    assert not test_file_path_2.exists()
 
     # 데이터베이스 삭제 검증
-    query = select(ReviewImage).where(ReviewImage.id == image.id)  # type: ignore
+    query = select(ReviewImage).where(ReviewImage.filepath.in_([str(test_file_path_1), str(test_file_path_2)]))  # type: ignore
     result = await async_session.execute(query)
-    deleted_image = result.scalar_one_or_none()
-    assert deleted_image is None
+    deleted_images = result.scalars().all()
+    assert not deleted_images

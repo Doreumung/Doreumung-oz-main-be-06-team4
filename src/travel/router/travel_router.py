@@ -232,7 +232,7 @@ async def get_one_travel_route(
     id: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
 ) -> GetTravelRouteListResponse:
     travel_route = await travel_route_repo.get_by_id(id)
-    return await generate_dto(travel_route=travel_route, user_id=user_id)  # type: ignore
+    return await generate_dto(travel_route=travel_route, user_id=travel_route.user_id)  # type: ignore
 
 
 @router.delete("/{id}", status_code=204)

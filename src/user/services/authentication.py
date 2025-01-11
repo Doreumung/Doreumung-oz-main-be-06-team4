@@ -5,7 +5,7 @@ from typing import Optional, TypedDict
 
 import bcrypt
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, WebSocketException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.config import settings
@@ -121,3 +121,14 @@ def authenticate_optional(
         return payload["user_id"]
     except Exception:
         return None
+
+
+def websocket_authenticate(access_token: str) -> str:
+    payload: JWTPayload = decode_access_token(access_token=access_token)
+
+    # token 만료 검사
+    EXPIRY_SECONDS = 60 * 60 * 24 * 7
+    if payload["exp"] + EXPIRY_SECONDS < time.time():
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Token expired")
+
+    return payload["user_id"]

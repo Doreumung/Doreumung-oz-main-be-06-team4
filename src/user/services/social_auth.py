@@ -64,7 +64,7 @@ async def kakao_callback_handler(
         email = user_profile.get("kakao_account", {}).get("email")
         nickname = user_profile.get("properties", {}).get("nickname")
         if not nickname:
-            nickname = email[:email.index("@")]
+            nickname = email[: email.index("@")]
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

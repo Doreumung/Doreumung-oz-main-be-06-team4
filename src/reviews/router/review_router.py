@@ -1,12 +1,13 @@
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy import Integer, String, cast, delete, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
@@ -21,10 +22,22 @@ from src.reviews.dtos.response import (
     ReviewResponse,
     ReviewUpdateResponse,
 )
-from src.reviews.models.models import Comment, Like, Review
-from src.reviews.repo.review_repo import CommentRepo, ReviewRepo
+from src.reviews.models.models import (
+    Comment,
+    ImageSourceType,
+    Like,
+    Review,
+    ReviewImage,
+)
+from src.reviews.repo.review_repo import CommentRepo, ReviewImageManager, ReviewRepo
 from src.reviews.router.comment_router import delete_comment
-from src.reviews.services.image_utils import s3_client
+from src.reviews.services.image_utils import (
+    finalize_review_images,
+    handle_image_urls,
+    process_image_deletion,
+    process_image_upload,
+    s3_client,
+)
 from src.reviews.services.review_utils import validate_order_by
 from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
@@ -50,24 +63,26 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
     response_model=ReviewResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_review_handler(
-    body: ReviewRequestBase = Body(...),  # 리뷰 본문 처리
-    review_repo: ReviewRepo = Depends(),  # 의존성 주입
-    deleted_images: List[str] = Body(default_factory=list),
-    current_user_id: str = Depends(authenticate),
+async def create_review(
+    body: ReviewRequestBase,
+    uploaded_urls: List[str] = Body(default_factory=list),  # 업로드된 이미지 URL 목록
+    deleted_urls: List[str] = Body(default_factory=list),  # 삭제된 이미지 URL
+    review_repo: ReviewRepo = Depends(),
     user_repo: UserRepository = Depends(),
+    current_user_id: str = Depends(authenticate),
 ) -> ReviewResponse:
-    # 요청 바디 로깅
-    logging.info(f"Received request body: {body}")
+    """
+    리뷰 작성 시 업로드된 이미지 URL을 연결하는 API.
+    """
     # 사용자 확인
     user = await user_repo.get_user_by_id(user_id=current_user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+        raise HTTPException(status_code=404, detail="User not found")
 
-    # 새로운 리뷰 객체 생성
+    # 업로드된 URL 처리
+    review_images = await handle_image_urls(uploaded_urls, deleted_urls)
+
+    # 리뷰 생성
     new_review = Review(
         user_id=user.id,
         travel_route_id=body.travel_route_id,
@@ -75,28 +90,14 @@ async def create_review_handler(
         rating=body.rating,
         content=body.content,
         thumbnail=body.thumbnail,
+        images=review_images,  # ReviewImage 객체 리스트 추가
     )
-    logging.info(f"Created Review object: {new_review}")
-
-    # 리뷰 저장
     saved_review = await review_repo.save_review(new_review)
     if not saved_review or not saved_review.id:
         raise HTTPException(status_code=500, detail="Failed to save review")
-    logging.info(f"Saved Review: {saved_review}")
 
-    # 삭제된 이미지 처리
-    if deleted_images:
-        for file_name in deleted_images:
-            try:
-                # S3에서 삭제
-                s3_client.delete_object(Bucket=settings.BUCKET_NAME, Key=file_name)
-                # 데이터베이스에서 삭제
-                await review_repo.delete_image_by_filepath(file_name)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
-
-    # 최종 응답 생성
-    response = ReviewResponse(
+    # 응답 생성
+    return ReviewResponse(
         review_id=saved_review.id,
         nickname=user.nickname,
         travel_route_id=saved_review.travel_route_id,
@@ -108,8 +109,8 @@ async def create_review_handler(
         created_at=saved_review.created_at,
         updated_at=saved_review.updated_at,
         thumbnail=saved_review.thumbnail,
+        images=[image.filepath for image in review_images],  # 응답에 이미지 URL 포함
     )
-    return response
 
 
 """

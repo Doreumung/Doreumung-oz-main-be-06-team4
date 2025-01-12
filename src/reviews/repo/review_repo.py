@@ -142,3 +142,23 @@ class CommentRepo:
         if comment:
             await self.session.delete(comment)
             await self.session.commit()
+
+
+# 상태 관리 클래스
+class ReviewImageManager:
+    def __init__(self) -> None:
+        self.uploaded_urls: List[str] = []  # 작성 도중 업로드한 이미지 URL
+        self.deleted_urls: List[str] = []  # 삭제 요청된 이미지 URL
+        self.final_urls: List[str] = []  # 최종 업로드된 이미지 URL
+
+    def add_uploaded_url(self, url: str) -> None:
+        self.uploaded_urls.append(url)
+
+    def add_deleted_url(self, url: str) -> None:
+        self.deleted_urls.append(url)
+
+    def finalize_urls(self) -> None:
+        self.final_urls = [url for url in self.uploaded_urls if url not in self.deleted_urls]
+
+    def get_final_urls(self) -> List[str] | None:
+        return self.final_urls

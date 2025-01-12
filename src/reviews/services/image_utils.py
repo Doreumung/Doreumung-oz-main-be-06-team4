@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from os import access
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import uuid4
 
 import boto3
@@ -14,7 +14,7 @@ from fastapi import HTTPException, UploadFile
 
 from src.config import settings
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
-from src.reviews.repo.review_repo import ReviewRepo
+from src.reviews.repo.review_repo import ReviewImageManager, ReviewRepo
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 # 업로드 디렉토리 설정
@@ -78,29 +78,30 @@ def validate_source_type(source_type: str) -> ImageSourceType:
         raise ValueError(f"Invalid source_type: {source_type}. Must be one of {[e.value for e in ImageSourceType]}")
 
 
-async def handle_image_urls(image_urls: List[str], review_id: int, review_repo: ReviewRepo) -> None:
-    """
-    이미지 URL 처리 함수
-    - URL 이미지를 ReviewImage 테이블에 추가
-    """
-    existing_urls = await review_repo.get_existing_image_urls(review_id)
-    for image_url in image_urls:
-        if image_url and image_url not in existing_urls:  # 이미지 URL이 None이 아닌 경우
-            source_type = ImageSourceType.LINK  # Enum 사용
-            new_image = ReviewImage(
-                review_id=review_id,
-                filepath=image_url,
-                source_type=source_type.value,  # Enum의 값만 사용
-            )
-            await review_repo.save_image(new_image)
-
-
 # async def delete_file_from_s3(filepath: str):
 AWS_ACCESS_KEY = settings.AWS_ACCESS_KEY
 AWS_SECRET_KEY = settings.AWS_SECRET_KEY
 AWS_REGION = settings.AWS_REGION
 BUCKET_NAME = settings.BUCKET_NAME
 transfer_config = TransferConfig(multipart_threshold=10 * 1024 * 1024)
+
+
+async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str]) -> List[ReviewImage]:
+    """
+    업로드된 URL은 그대로 유지하고, 삭제된 URL은 S3에서 제거
+    """
+    # 삭제된 URL 처리
+    for url in deleted_urls:
+        key = url.split("/")[-1]
+        try:
+            s3_client.delete_object(Bucket=BUCKET_NAME, Key=key)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")
+
+    # 업로드된 URL을 ReviewImage 객체로 변환
+    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD.value) for url in uploaded_urls]
+
+    return review_images
 
 
 s3_client = boto3.client(
@@ -166,3 +167,79 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
             raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")
 
     raise HTTPException(status_code=400, detail="Failed to process file or URL")
+
+
+# 이미지 업로드 처리 함수
+async def process_image_upload(
+    file: Optional[UploadFile],
+    url: Optional[str],
+    review_image_manager: ReviewImageManager,
+) -> Tuple[str, ImageSourceType]:
+    if not file and not url:
+        raise HTTPException(status_code=400, detail="No file or URL provided")
+
+    if file:
+        # 파일 처리
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+        try:
+            s3_client.upload_fileobj(
+                file.file,
+                BUCKET_NAME,
+                unique_filename,
+                Config=transfer_config,
+            )
+            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+            review_image_manager.add_uploaded_url(s3_url)
+            return s3_url, ImageSourceType.UPLOAD
+        except NoCredentialsError:
+            raise HTTPException(status_code=500, detail="AWS credentials not available")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+    if url:
+        # URL 처리
+        unique_filename = f"{uuid.uuid4().hex}_{url.split('/')[-1]}"
+        try:
+            response = requests.get(url, stream=True)
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to fetch URL content")
+            s3_client.upload_fileobj(
+                response.raw,
+                BUCKET_NAME,
+                unique_filename,
+                Config=transfer_config,
+            )
+            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+            review_image_manager.add_uploaded_url(s3_url)
+            return s3_url, ImageSourceType.LINK
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")
+    raise HTTPException(status_code=400, detail="Failed to process file or URL")
+
+
+# 이미지 삭제 요청 처리 함수
+async def process_image_deletion(url: str, review_image_manager: ReviewImageManager) -> None:
+    try:
+        s3_key = url.split("/")[-1]
+        s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
+        review_image_manager.add_deleted_url(url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
+
+
+# 최종 처리 및 저장 함수
+async def finalize_review_images(
+    review_id: int,
+    review_image_manager: ReviewImageManager,
+    review_repo: ReviewRepo,
+) -> None:
+    review_image_manager.finalize_urls()
+    final_urls = review_image_manager.get_final_urls() or []
+
+    for url in final_urls:
+        new_image = ReviewImage(
+            review_id=review_id,
+            filepath=url,
+            source_type=ImageSourceType.UPLOAD.value,  # Assuming all are uploads
+        )
+        await review_repo.save_image(new_image)

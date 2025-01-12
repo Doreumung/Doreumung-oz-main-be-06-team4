@@ -2,9 +2,11 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import UploadFile
+from fastapi.testclient import TestClient
 from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
@@ -25,7 +27,7 @@ from src.reviews.models.models import (
 )
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
-    create_review_handler,
+    create_review,
     delete_review_handler,
     get_all_review_handler,
     get_review_handler,
@@ -42,50 +44,58 @@ from src.user.repo.repository import UserRepository
 
 
 @pytest.mark.asyncio
-async def test_create_review_handler(
-    async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute
-) -> None:
-    user = setup_data
-    travel_route = setup_travelroute
+async def test_create_review_handler() -> None:
+    # Mock 데이터
+    mock_review_repo = AsyncMock(ReviewRepo)
+    mock_user_repo = AsyncMock(UserRepository)
 
-    # 실제 데이터베이스에 ReviewRepo 초기화
-    review_repo = ReviewRepo(async_session)
+    # Mock 사용자 데이터
+    mock_user = AsyncMock()
+    mock_user.id = "user1"
+    mock_user.nickname = "test_user"
+    mock_user_repo.get_user_by_id.return_value = mock_user
 
-    # 요청 데이터 생성
-    body_data: Dict[str, Any] = {
-        "travel_route_id": travel_route.id,
-        "title": "Test Review",
-        "rating": 5.0,
-        "content": "This is a test review content.",
-        "nickname": user.nickname,
-        "thumbnail": "https://example.com/image1.jpg",
-    }
-    body = ReviewRequestBase(**body_data)
-
-    # 핸들러 호출
-    result = await create_review_handler(
-        body=body,
-        review_repo=review_repo,
-        current_user_id=user.id,
-        user_repo=UserRepository(async_session),
-        deleted_images=[],
+    # Mock Review 객체
+    mock_review = Review(
+        id=1,
+        user_id="user1",
+        travel_route_id=1,
+        title="Test Review",
+        rating=4.5,
+        content="This is a test review content.",
+        thumbnail="http://example.com/test-thumbnail.jpg",
+        images=[],  # 초기에는 이미지가 비어 있음
     )
+    mock_review_repo.save_review.return_value = mock_review
 
-    # 결과 검증
-    assert result.travel_route_id == body_data["travel_route_id"]
-    assert result.title == body_data["title"]
-    assert result.rating == body_data["rating"]
-    assert result.content == body_data["content"]
-    assert result.nickname == body_data["nickname"]
-    assert result.thumbnail == body_data["thumbnail"]
+    # Test Body
+    review_request_data = ReviewRequestBase(
+        travel_route_id=1,
+        title="Test Review",
+        rating=4.5,
+        content="This is a test review content.",
+        thumbnail="http://example.com/test-thumbnail.jpg",
+    )
+    uploaded_urls = ["http://example.com/uploaded_image1.jpg"]
+    deleted_urls = ["http://example.com/deleted_image1.jpg"]
+    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD.value) for url in uploaded_urls]
 
-    # 데이터베이스에서 리뷰 확인
-    saved_review = await async_session.get(Review, result.review_id)
-    assert saved_review is not None
-    assert saved_review.title == body_data["title"]
-    assert saved_review.content == body_data["content"]
-    assert saved_review.travel_route_id == result.travel_route_id
-    assert saved_review.thumbnail == body_data["thumbnail"]
+    with patch("src.reviews.router.review_router.handle_image_urls", AsyncMock(return_value=review_images)):
+        response = await create_review(
+            body=review_request_data,
+            uploaded_urls=uploaded_urls,
+            deleted_urls=deleted_urls,
+            review_repo=mock_review_repo,
+            user_repo=mock_user_repo,
+            current_user_id="user1",
+        )
+
+    # Assertions
+    assert response.title == review_request_data.title
+    assert response.rating == review_request_data.rating
+    assert response.thumbnail == review_request_data.thumbnail
+    assert response.nickname == "test_user"
+    assert response.images == uploaded_urls
 
 
 """

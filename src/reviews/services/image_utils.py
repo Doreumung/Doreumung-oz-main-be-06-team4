@@ -10,12 +10,10 @@ import boto3
 import requests  # type: ignore
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import NoCredentialsError
-from fastapi import FastAPI, HTTPException, UploadFile
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException, UploadFile
+
 
 from src.config import settings
-from src.reviews.dtos.response import ReviewImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 
@@ -103,6 +101,7 @@ AWS_ACCESS_KEY = settings.AWS_ACCESS_KEY
 AWS_SECRET_KEY = settings.AWS_SECRET_KEY
 AWS_REGION = settings.AWS_REGION
 BUCKET_NAME = settings.BUCKET_NAME
+transfer_config = TransferConfig(multipart_threshold=10 * 1024 * 1024)
 
 
 s3_client = boto3.client(
@@ -110,7 +109,6 @@ s3_client = boto3.client(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_KEY,
     region_name=AWS_REGION,
-    Config=TransferConfig(multipart_threshold=10 * 1024 * 1024),
 )
 
 
@@ -131,7 +129,12 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
         unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
         try:
             # S3 업로드
-            s3_client.upload_fileobj(file.file, BUCKET_NAME, unique_filename)
+            s3_client.upload_fileobj(
+                file.file,
+                BUCKET_NAME,
+                unique_filename,
+                Config=transfer_config,
+            )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
             return s3_url, ImageSourceType.UPLOAD
         except NoCredentialsError:
@@ -152,7 +155,12 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
                 raise HTTPException(status_code=400, detail="Failed to fetch URL content")
 
             # S3 업로드
-            s3_client.upload_fileobj(response.raw, BUCKET_NAME, unique_filename)
+            s3_client.upload_fileobj(
+                response.raw,
+                BUCKET_NAME,
+                unique_filename,
+                Config=transfer_config,
+            )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
             return s3_url, ImageSourceType.LINK
         except Exception as e:

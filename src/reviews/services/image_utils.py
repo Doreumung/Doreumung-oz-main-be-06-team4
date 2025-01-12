@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import boto3
 import requests  # type: ignore
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import NoCredentialsError
 from fastapi import FastAPI, HTTPException, UploadFile
 from sqlalchemy import select
@@ -109,6 +110,7 @@ s3_client = boto3.client(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_KEY,
     region_name=AWS_REGION,
+    Config=TransferConfig(multipart_threshold=10 * 1024 * 1024),
 )
 
 

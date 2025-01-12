@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   nginx:
@@ -24,6 +23,7 @@ services:
     environment:
       - ENV=prod
       - DATABASE_URL=${DATABASE_URL}
+      - CLIENT_MAX_BODY_SIZE=10M
     depends_on:
       db:
         condition: service_healthy

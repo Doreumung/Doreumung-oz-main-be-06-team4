@@ -14,8 +14,8 @@ from src.user.services.authentication import authenticate
 
 image_router = APIRouter(prefix="/images", tags=["Images"])
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)  # Ensure the upload directory exists
+# UPLOAD_DIR = Path("uploads")
+# UPLOAD_DIR.mkdir(exist_ok=True)  # Ensure the upload directory exists
 
 
 @image_router.post("/upload", response_model=UploadImageResponse)

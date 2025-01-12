@@ -13,6 +13,7 @@ from sqlalchemy.sql import select
 from uvicorn.protocols.utils import ClientDisconnected
 
 from src import TravelRoute, TravelRoutePlace  # type: ignore
+from src.config import settings
 from src.config.database.connection_async import get_async_session
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
 from src.reviews.dtos.response import (
@@ -23,6 +24,7 @@ from src.reviews.dtos.response import (
 from src.reviews.models.models import Comment, Like, Review
 from src.reviews.repo.review_repo import CommentRepo, ReviewRepo
 from src.reviews.router.comment_router import delete_comment
+from src.reviews.services.image_utils import s3_client
 from src.reviews.services.review_utils import validate_order_by
 from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
@@ -51,6 +53,7 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
 async def create_review_handler(
     body: ReviewRequestBase = Body(...),  # 리뷰 본문 처리
     review_repo: ReviewRepo = Depends(),  # 의존성 주입
+    deleted_images: List[str] = Body(default_factory=list),
     current_user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> ReviewResponse:
@@ -80,6 +83,17 @@ async def create_review_handler(
     if not saved_review or not saved_review.id:
         raise HTTPException(status_code=500, detail="Failed to save review")
     logging.info(f"Saved Review: {saved_review}")
+
+    # 삭제된 이미지 처리
+    if deleted_images:
+        for file_name in deleted_images:
+            try:
+                # S3에서 삭제
+                s3_client.delete_object(Bucket=settings.BUCKET_NAME, Key=file_name)
+                # 데이터베이스에서 삭제
+                await review_repo.delete_image_by_filepath(file_name)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
 
     # 최종 응답 생성
     response = ReviewResponse(
@@ -294,6 +308,7 @@ async def update_review_handler(
     review_id: int,
     body: ReviewUpdateRequest,
     review_repo: ReviewRepo = Depends(),
+    deleted_images: List[str] = Body(default_factory=list),
     user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> ReviewUpdateResponse:
@@ -330,6 +345,20 @@ async def update_review_handler(
     if body.thumbnail is not None:
         review.thumbnail = body.thumbnail
     review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+
+    # 삭제된 이미지 처리
+    if deleted_images:
+        for file_name in deleted_images:
+            try:
+                # S3에서 삭제
+                s3_client.delete_object(Bucket=settings.BUCKET_NAME, Key=file_name)
+                # 데이터베이스에서 삭제
+                await review_repo.delete_image_by_filepath(file_name)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to delete image: {str(e)}",
+                )
 
     await review_repo.save_review(review)
     return ReviewUpdateResponse(

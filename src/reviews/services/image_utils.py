@@ -1,15 +1,19 @@
 import shutil
 import uuid
 from datetime import datetime
+from os import access
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
+import boto3
 import requests  # type: ignore
-from fastapi import HTTPException, UploadFile
+from botocore.exceptions import NoCredentialsError
+from fastapi import FastAPI, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.reviews.dtos.response import ReviewImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
@@ -93,86 +97,63 @@ async def handle_image_urls(image_urls: List[str], review_id: int, review_repo: 
             await review_repo.save_image(new_image)
 
 
-async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> tuple[Path, ImageSourceType]:
-    """파일 또는 URL 처리를 담당하는 함수."""
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # 디렉토리 생성
+# async def delete_file_from_s3(filepath: str):
+AWS_ACCESS_KEY = settings.AWS_ACCESS_KEY
+AWS_SECRET_KEY = settings.AWS_SECRET_KEY
+AWS_REGION = settings.AWS_REGION
+BUCKET_NAME = settings.BUCKET_NAME
+
+
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+    region_name=AWS_REGION,
+)
+
+
+async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> tuple[str, ImageSourceType]:
+    """
+    파일 또는 URL을 처리하고, S3에 업로드한 URL을 반환합니다.
+    """
+    if not file and not url:
+        raise HTTPException(status_code=400, detail="No file or URL provided")
 
     if file:
-        # 파일 검증 및 저장
+        # 파일 검증 및 업로드
         if not file.filename:
             raise HTTPException(status_code=400, detail="Invalid file: Filename cannot be None")
         validate_file_extension(file.filename)
         validate_file_size(file)
 
         unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-        file_path = UPLOAD_DIR / unique_filename
-
         try:
-            with file_path.open("wb") as buffer:
-                content = await file.read()
-                buffer.write(content)
-            return file_path, ImageSourceType.UPLOAD
+            # S3 업로드
+            s3_client.upload_fileobj(file.file, BUCKET_NAME, unique_filename)
+            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+            return s3_url, ImageSourceType.UPLOAD
+        except NoCredentialsError:
+            raise HTTPException(status_code=500, detail="AWS credentials not available")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
     elif url:
-        # URL 검증 및 파일 저장
+        # URL 검증 및 S3에 저장
         validate_url_size(url)
         filename = url.split("/")[-1]
         validate_file_extension(filename)
 
         unique_filename = f"{uuid.uuid4().hex}_{filename}"
-        file_path = UPLOAD_DIR / unique_filename
-
         try:
             response = requests.get(url, stream=True)
             if response.status_code != 200:
                 raise HTTPException(status_code=400, detail="Failed to fetch URL content")
-            with file_path.open("wb") as buffer:
-                buffer.write(response.content)
-            return file_path, ImageSourceType.LINK
+
+            # S3 업로드
+            s3_client.upload_fileobj(response.raw, BUCKET_NAME, unique_filename)
+            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+            return s3_url, ImageSourceType.LINK
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")
 
-    raise HTTPException(status_code=400, detail="No file or URL provided")
-
-
-# 유틸리티 함수: 리뷰 이미지 저장 유효성 검증
-# def validate_review_image(filepath: Optional[str], source_type: Optional[str]) -> None:
-#     """
-#     리뷰 이미지 저장 시 유효성 검사
-#     - 파일 경로와 소스 타입이 함께 제공되지 않으면 예외를 발생시킵니다.
-#     """
-#     if filepath is None and source_type is None:
-#         return  # 둘 다 비어 있는 경우 허용 (이미지 없이 리뷰 작성)
-#     if filepath is None or source_type is None:
-#         raise ValueError("Both 'filepath' and 'source_type' must be provided together.")
-#
-# # deleteImages에 포함된 파일명 기준으로 s3에서 해당 파일 삭제
-# async def handler_delete_images(
-#         review_id: int,
-#         review_repo: ReviewRepo,
-#         deleted_images: List[str],
-#         session: AsyncSession,
-# ) -> None:
-#
-#     query = (
-#         select(ReviewImage)
-#         .where(ReviewImage.review_id == review_id, ReviewImage.filepath.in_deleted_images)
-#     )
-#     result = await session.execute(query)
-#     image_to_delete = result.scalar()
-#
-#     # 데이터베이스에서 이미지 삭제
-#     for image in deleted_images:
-#         await review_repo.delete_image(image)
-#
-#     #
-#
-#
-# async def delete_file_from_s3(filepath: str):
-#     s3_client = boto3.client("s3")
-#     bucket_name = "test_bucket_name"
-#     try:
-#         s3_client.delete_object(Bucket=bucket_name, Key=filepath)
-#     except Exception as e:
-#         print(f"Failed to delete file: {str(e)}")
+    raise HTTPException(status_code=400, detail="Failed to process file or URL")

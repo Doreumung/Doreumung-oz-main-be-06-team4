@@ -68,6 +68,7 @@ async def test_create_review_handler(
         review_repo=review_repo,
         current_user_id=user.id,
         user_repo=UserRepository(async_session),
+        deleted_images=[],
     )
 
     # 결과 검증
@@ -333,6 +334,7 @@ async def test_update_review_handler(
         review_repo=review_repo,
         user_id=user.id,
         user_repo=user_repo,
+        deleted_images=[],
     )
 
     # 응답 데이터 검증

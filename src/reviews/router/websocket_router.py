@@ -87,7 +87,7 @@ async def like_websocket_endpoint(
                                 update(Review)
                                 .where(Review.id == int(data.get("review_id")))
                                 .values(like_count=Review.like_count + 1)
-                            )  # type:ignore
+                            )
                             review = result.scalar_one_or_none()
                             await async_session.commit()
                             data["like_count"] = review.like_count  # type:ignore
@@ -105,7 +105,7 @@ async def like_websocket_endpoint(
                                     update(Review)
                                     .where(Review.id == int(data.get("review_id")))
                                     .values(like_count=Review.like_count - 1)
-                                )  # type:ignore
+                                )
                                 review = result.scalar_one_or_none()
                                 await async_session.commit()
                                 data["like_count"] = review.like_count  # type:ignore

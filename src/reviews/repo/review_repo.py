@@ -139,7 +139,9 @@ class CommentRepo:
     async def delete_comment(self, comment_id: int) -> None:
         result = await self.session.execute(select(Comment).where(cast(Comment.id, Integer) == comment_id))
         comment = result.scalar_one_or_none()
+        print(comment_id)
         if comment:
+            print(comment_id)
             await self.session.delete(comment)
             await self.session.commit()
 

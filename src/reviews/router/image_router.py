@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -7,8 +8,9 @@ from sqlmodel import select
 
 from src.reviews.dtos.response import ReviewImageResponse, UploadImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
-from src.reviews.repo.review_repo import ReviewRepo
-from src.reviews.services.image_utils import handle_file_or_url
+from src.reviews.repo import review_repo
+from src.reviews.repo.review_repo import ReviewImageManager, ReviewRepo
+from src.reviews.services.image_utils import handle_file_or_url, process_image_upload
 from src.user.repo.repository import UserRepository
 from src.user.services.authentication import authenticate
 
@@ -20,66 +22,35 @@ image_router = APIRouter(prefix="/images", tags=["Images"])
 
 @image_router.post("/upload", response_model=UploadImageResponse)
 async def upload_images(
-    review_id: int,
     file: Optional[UploadFile] = None,
     url: Optional[str] = None,
     user_id: str = Depends(authenticate),
-    image_repo: ReviewRepo = Depends(),
     user_repo: UserRepository = Depends(),
 ) -> UploadImageResponse:
-    user = await user_repo.get_user_by_id(user_id=user_id)
+
+    # 사용자 인증 확인
+    user = await user_repo.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
-    # 검증: 리뷰 존재 여부 확인
-    query = select(Review).where(Review.id == review_id)
-    result = await image_repo.session.execute(query)
-    review = result.unique().scalar_one_or_none()
-    if not review:
-        raise HTTPException(status_code=404, detail="Review not found")
-    if not file and not url:
-        raise HTTPException(status_code=400, detail="No file or URL provided")
+    # 파일 업로드 처리
+    uploaded_url, source_type = await handle_file_or_url(file=file, url=url)
 
-    # 파일 저장 처리
-    file_path, source_type = await handle_file_or_url(file, url)
-
-    # ReviewImage 객체 생성 및 DB에 저장
-    uploaded_image = ReviewImage(
-        review_id=review_id,
-        filepath=str(file_path),
-        source_type=source_type.value,
+    # `ReviewImageResponse` 생성
+    uploaded_image = ReviewImageResponse(
+        id=0,  # 업로드된 이미지는 아직 DB에 저장되지 않았으므로 임시로 0 설정
+        review_id=0,  # 리뷰 ID가 없는 경우 0으로 설정
+        filepath=uploaded_url,
+        source_type=source_type.value,  # type: ignore
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
-    await image_repo.save_image(uploaded_image)
-
-    # 해당 리뷰의 모든 이미지 조회
-    query = select(ReviewImage).where(ReviewImage.review_id == review_id).order_by(ReviewImage.id)  # type: ignore
-    result = await image_repo.session.execute(query)
-    all_images = result.unique().scalars().all()
-
-    if not all_images:
-        raise HTTPException(status_code=404, detail="No images found for the given review")
 
     # 응답 생성
     return UploadImageResponse(
-        uploaded_image=ReviewImageResponse(
-            id=uploaded_image.id,
-            review_id=uploaded_image.review_id,
-            filepath=uploaded_image.filepath,
-            source_type=uploaded_image.source_type,
-            created_at=uploaded_image.created_at,
-            updated_at=uploaded_image.updated_at,
-        ),
-        all_images=[
-            ReviewImageResponse(
-                id=image.id,
-                review_id=image.review_id,  # type: ignore
-                filepath=image.filepath,  # type: ignore
-                source_type=image.source_type,  # type: ignore
-                created_at=image.created_at,
-                updated_at=image.updated_at,
-            )
-            for image in all_images
-        ],
+        uploaded_image=uploaded_image,
+        all_images=[uploaded_image],  # 현재는 업로드된 이미지만 포함
+        uploaded_url=uploaded_url,
     )
 
 

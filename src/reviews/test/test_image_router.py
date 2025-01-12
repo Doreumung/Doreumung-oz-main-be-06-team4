@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from uuid import UUID
 
 import boto3
 import pytest
@@ -28,73 +29,35 @@ BUCKET_NAME = "doreumung-06"
 
 
 @pytest.mark.asyncio
-async def test_upload_images(
-    async_session: AsyncSession,
-    setup_data: User,
-    setup_travelroute: TravelRoute,
-) -> None:
-    # Setup: 주어진 User와 TravelRoute 사용하여 테스트용 데이터 설정
-    user = setup_data
-    travel_route = setup_travelroute
-    seoul_tz = timezone(timedelta(hours=9))
+async def test_upload_images_handler() -> None:
+    # Mock 데이터
+    mock_user_repo = AsyncMock(UserRepository)
+    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1")
 
-    # 사용자와 여행 정보를 데이터베이스에 추가
-    async_session.add(user)
-    await async_session.commit()
+    # Mock S3 client
+    with patch("src.reviews.services.image_utils.s3_client.upload_fileobj", Mock(return_value=None)) as mock_s3:
+        # Mock 파일 객체
+        uploaded_file = Mock()
+        uploaded_file.filename = "test_image.jpg"
+        uploaded_file.file = Mock()
+        uploaded_file.file.tell = Mock(side_effect=[10 * 1024 * 1024, 0])  # 파일 크기 10MB로 설정
+        uploaded_file.file.seek = Mock(return_value=None)
 
-    # Review 객체 추가
-    review = Review(
-        id=1,
-        user_id=user.id,
-        travel_route_id=travel_route.id,
-        title="Test review title",
-        rating=4.5,
-        content="Test review content",
-        created_at=datetime.now(seoul_tz),
-        updated_at=datetime.now(seoul_tz),
-    )
-    async_session.add(review)
-    await async_session.commit()
+        # 고정된 UUID 값을 반환하도록 Mock
+        fixed_uuid = UUID("86efb6f5-b772-449b-aaef-145a161b41f7")  # UUID 객체 생성
+        with patch("uuid.uuid4", Mock(return_value=fixed_uuid)):
+            # 테스트 실행
+            response = await upload_images(
+                file=uploaded_file,
+                url=None,
+                user_id="user1",
+                user_repo=mock_user_repo,
+            )
 
-    # 가상 파일 생성
-    test_file_path = Path("/tmp/test_image.jpg")
-    test_file_path.touch()  # 파일 생성
-    with test_file_path.open("wb") as f:
-        f.write(b"test content")  # 간단한 테스트 내용 추가
-
-    # UploadFile 객체 생성
-    file = UploadFile(filename="test_image.jpg", file=test_file_path.open("rb"))
-
-    # 레포지토리 생성
-    review_repo = ReviewRepo(async_session)
-    user_repo = UserRepository(async_session)
-
-    # 엔드포인트 호출
-    response = await upload_images(
-        review_id=review.id,
-        file=file,
-        url=None,
-        user_id=user.id,
-        image_repo=review_repo,
-        user_repo=user_repo,
-    )
-
-    # 응답 데이터 검증
-    assert isinstance(response, UploadImageResponse)
-    assert response.uploaded_image.review_id == review.id
-    assert response.uploaded_image.filepath.endswith("test_image.jpg")
-    assert response.uploaded_image.source_type == "upload"
-
-    # DB에 저장된 데이터 검증
-    uploaded_image = await async_session.get(ReviewImage, response.uploaded_image.id)
-    assert uploaded_image is not None
-    assert uploaded_image.review_id == review.id
-    assert uploaded_image.filepath.endswith("test_image.jpg")
-    assert uploaded_image.source_type == "upload"
-
-    # 파일 삭제
-    if test_file_path.exists():
-        test_file_path.unlink()
+        # Assertions
+        mock_s3.assert_called_once()  # S3에 한 번 업로드 되었는지 확인
+        expected_url = f"https://doreumung-06.s3.amazonaws.com/{fixed_uuid.hex}_test_image.jpg"
+        assert response.uploaded_url == expected_url
 
 
 # 삭제 테스트

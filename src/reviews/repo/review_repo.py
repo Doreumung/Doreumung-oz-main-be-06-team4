@@ -91,6 +91,14 @@ class ReviewRepo:
             await self.session.delete(image)
             await self.session.commit()
 
+    async def delete_image_by_filepath(self, filepath: str) -> None:
+        query = select(ReviewImage).where(ReviewImage.filepath == filepath)  # type: ignore
+        result = await self.session.execute(query)
+        image = result.scalars().first()
+        if image:
+            await self.session.delete(image)
+            await self.session.commit()
+
     async def get_existing_image_urls(self, review_id: int) -> List[str]:
         """
         특정 리뷰에 이미 저장된 이미지 URL을 가져옵니다.

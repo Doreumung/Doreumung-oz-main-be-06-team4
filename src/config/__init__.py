@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URL: str
     SECRET_KEY: str
     DEBUG: bool
+    AWS_ACCESS_KEY: str
+    AWS_SECRET_KEY: str
+    AWS_REGION: str
+    BUCKET_NAME: str
 
     class Config:
         env_file = ".env.dev"

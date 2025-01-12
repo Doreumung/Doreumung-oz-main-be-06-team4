@@ -34,6 +34,9 @@ respx = "^0.22.0"
 sqlmodel = "^0.0.22"
 ortools = "^9.11.4210"
 websockets = "^14.1"
+boto3 = "^1.35.97"
+moto = "^5.0.26"
+requests-mock = "^1.12.1"
 
 
 [build-system]

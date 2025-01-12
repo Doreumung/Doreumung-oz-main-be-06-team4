@@ -12,7 +12,6 @@ from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import NoCredentialsError
 from fastapi import HTTPException, UploadFile
 
-
 from src.config import settings
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo

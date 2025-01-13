@@ -253,7 +253,7 @@ async def cleanup_temporary_images(image_repo: ReviewRepo) -> None:
     """
     일정 시간이 지난 임시 이미지를 정리
     """
-    cutoff_time = datetime.now(timezone("Asia/Seoul")) - timedelta(hours=1)
+    cutoff_time = datetime.now(KST) - timedelta(hours=1)
     query = select(ReviewImage).where(ReviewImage.is_temporary == True, ReviewImage.created_at < cutoff_time)  # type: ignore
     result = await image_repo.session.execute(query)
 

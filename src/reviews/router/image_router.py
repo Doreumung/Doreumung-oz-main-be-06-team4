@@ -25,6 +25,7 @@ async def upload_images(
     url: Optional[str] = None,
     user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
+    image_repo: ReviewRepo = Depends(),
 ) -> UploadImageResponse:
 
     # 사용자 인증 확인
@@ -33,22 +34,35 @@ async def upload_images(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     # 파일 업로드 처리
-    uploaded_url, source_type = await handle_file_or_url(file=file, url=url, user_id=user_id)
+    uploaded_url, source_type = await handle_file_or_url(file=file, url=url, user_id=user_id, image_repo=image_repo)
 
-    # `ReviewImageResponse` 생성
-    uploaded_image = ReviewImageResponse(
-        id=0,  # 업로드된 이미지는 아직 DB에 저장되지 않았으므로 임시로 0 설정
-        review_id=0,  # 리뷰 ID가 없는 경우 0으로 설정
+    # `ReviewImage` 객체 생성
+    new_image = ReviewImage(
+        user_id=user_id,
         filepath=uploaded_url,
         source_type=source_type,
+        is_temporary=True,  # 임시 저장 상태로 설정
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
 
+    # 데이터베이스에 이미지 저장
+    saved_image = await image_repo.add_image(new_image)
+
+    # `ReviewImageResponse` 생성
+    uploaded_image_response = ReviewImageResponse(
+        id=saved_image.id,  # type: ignore
+        review_id=saved_image.review_id or 0,  # type: ignore # 리뷰 ID가 없는 경우 0으로 설정
+        filepath=saved_image.filepath,  # type: ignore
+        source_type=saved_image.source_type,  # type: ignore
+        created_at=saved_image.created_at,  # type: ignore
+        updated_at=saved_image.updated_at,  # type: ignore
+    )
+
     # 응답 생성
     return UploadImageResponse(
-        uploaded_image=uploaded_image,
-        all_images=[uploaded_image],  # 현재는 업로드된 이미지만 포함
+        uploaded_image=uploaded_image_response,
+        all_images=[uploaded_image_response],  # 현재 업로드된 이미지만 포함
         uploaded_url=uploaded_url,
     )
 

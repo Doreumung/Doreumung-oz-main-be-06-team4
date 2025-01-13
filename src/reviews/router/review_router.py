@@ -13,8 +13,10 @@ from src.config import settings
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
 from src.reviews.dtos.response import (
     GetReviewResponse,
+    ReviewImageResponse,
     ReviewResponse,
     ReviewUpdateResponse,
+    UploadImageResponse,
 )
 from src.reviews.models.models import (
     Comment,
@@ -46,17 +48,17 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
 
 @review_router.post(
     "/reviews",
-    response_model=ReviewResponse,
+    response_model=UploadImageResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review(
     body: ReviewRequestBase,
-    uploaded_urls: List[str] = Body(default_factory=list),  # 업로드된 이미지 URL 목록
-    deleted_urls: List[str] = Body(default_factory=list),  # 삭제된 이미지 URL
+    uploaded_urls: List[str] = Body(default_factory=list),
+    deleted_urls: List[str] = Body(default_factory=list),
     review_repo: ReviewRepo = Depends(),
     user_repo: UserRepository = Depends(),
     current_user_id: str = Depends(authenticate),
-) -> ReviewResponse:
+) -> UploadImageResponse:
     """
     리뷰 작성 시 업로드된 이미지 URL을 연결하는 API.
     """
@@ -72,43 +74,27 @@ async def create_review(
 
     route = await review_repo.get_travel_route_by_id(route_id)
     if not route:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Travel route with ID {route_id} does not exist.",
-        )
+        raise HTTPException(status_code=400, detail="Invalid travel route ID")
 
     # deleted_urls 처리
     for url in deleted_urls:
-        # URL에 해당하는 이미지 검색
         query = select(ReviewImage).where(
             ReviewImage.filepath == url,  # type: ignore
-            ReviewImage.user_id == user.id,  # type: ignore # 현재 사용자 소유 여부 확인
+            ReviewImage.user_id == user.id,  # type: ignore
         )
         result = await review_repo.session.execute(query)
         image = result.scalars().one_or_none()
-
         if not image:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Image with URL {url} not found or not owned by the user.",
-            )
+            raise HTTPException(status_code=404, detail="Image not found")
 
         # 이미지 삭제
-        if image.source_type == ImageSourceType.UPLOAD:
-            file_path = Path(image.filepath)
-            if file_path.exists():
-                file_path.unlink()
-        elif image.source_type == ImageSourceType.LINK:
+        if image.source_type == ImageSourceType.LINK:
             key = Path(image.filepath).name
             s3_client.delete_object(Bucket="bucket-name", Key=key)
-
-        # 데이터베이스에서 이미지 삭제
         await review_repo.delete_image(image.id)
 
     # 업로드된 URL 처리
     review_images = await handle_image_urls(uploaded_urls, deleted_urls, current_user_id)
-    if not isinstance(review_images, list):
-        raise HTTPException(status_code=500, detail="Invalid review images format")
 
     # 리뷰 생성
     new_review = Review(
@@ -118,27 +104,40 @@ async def create_review(
         rating=body.rating,
         content=body.content,
         thumbnail=body.thumbnail,
-        images=review_images,  # ReviewImage 객체 리스트 추가
+        images=review_images,
     )
-    saved_review = await review_repo.save_review(new_review)
-    if not saved_review or not saved_review.id:
-        raise HTTPException(status_code=500, detail="Failed to save review")
 
-    # 응답 생성
-    return ReviewResponse(
-        review_id=saved_review.id,
-        nickname=user.nickname,
-        travel_route_id=saved_review.travel_route_id,
-        title=saved_review.title,
-        rating=saved_review.rating,
-        content=saved_review.content,
-        like_count=saved_review.like_count or 0,
-        liked_by_user=False,
-        created_at=saved_review.created_at,
-        updated_at=saved_review.updated_at,
-        thumbnail=saved_review.thumbnail,
-        images=[image.filepath for image in review_images],  # 응답에 이미지 URL 포함
+    # 리뷰 저장
+    saved_review = await review_repo.save_review(new_review)
+
+    # 이미지를 리뷰에 연결하기 위한 추가 로직
+    images = await review_repo.get_image_by_id(saved_review.id)  # type: ignore
+
+    # `UploadImageResponse` 생성
+    uploaded_image_response = UploadImageResponse(
+        uploaded_image=ReviewImageResponse(
+            id=images[0].id,
+            review_id=saved_review.id,  # type: ignore
+            filepath=images[0].filepath,
+            source_type=images[0].source_type,  # 올바른 enum 값을 반환
+            created_at=images[0].created_at,
+            updated_at=images[0].updated_at,
+        ),
+        all_images=[
+            ReviewImageResponse(
+                id=image.id,
+                review_id=image.review_id,
+                filepath=image.filepath,
+                source_type=image.source_type,
+                created_at=image.created_at,
+                updated_at=image.updated_at,
+            )
+            for image in images
+        ],
+        uploaded_url=images[0].filepath,
     )
+
+    return uploaded_image_response
 
 
 """
@@ -237,7 +236,7 @@ async def get_review_handler(
 async def get_all_review_handler(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, likes)"),
+    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, comment_counts, like_counts)"),
     order: str = Query("desc", description="정렬 방향 (asc or desc)"),
     review_repo: ReviewRepo = Depends(),
 ) -> Dict[str, Any]:
@@ -266,7 +265,7 @@ async def get_all_review_handler(
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
             like_count_subquery.c.like_count.label("like_count"),
-            comment_count_subquery.c.comment_count.label("comment_count"),
+            func.coalesce(comment_count_subquery.c.comment_count, 0).label("comment_count"),  # COALESCE 처리
             Review.thumbnail.label("thumbnail"),  # type: ignore
         )
         .join(User, User.id == Review.user_id)  # type: ignore
@@ -337,10 +336,12 @@ async def update_review_handler(
     review_id: int,
     body: ReviewUpdateRequest,
     review_repo: ReviewRepo = Depends(),
+    uploaded_urls: List[str] = Body(default_factory=list),
     deleted_images: List[str] = Body(default_factory=list),
     user_id: str = Depends(authenticate),
     user_repo: UserRepository = Depends(),
 ) -> ReviewUpdateResponse:
+    # 사용자 확인
     user = await user_repo.get_user_by_id(user_id=user_id)
     if not user:
         raise HTTPException(
@@ -348,14 +349,12 @@ async def update_review_handler(
             detail="User not found",
         )
 
-    if not isinstance(review_id, int):
-        raise ValueError("review_id must be an integer")
+    # 리뷰 존재 확인
     query = (
         select(Review, User.nickname)  # type: ignore
         .join(User, cast(User.id, String) == Review.user_id)
         .where(cast(Review.id, Integer) == review_id)
     )
-
     result = await review_repo.session.execute(query)
     review, nickname = result.unique().one_or_none()
     if not review:
@@ -364,32 +363,50 @@ async def update_review_handler(
     if review.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission")
 
-    # 수정 가능한 필드 업데이트
-    if body.title is not None:
+    # 수정 필드 업데이트
+    if body.title:
         review.title = body.title
-    if body.content is not None:
+    if body.content:
         review.content = body.content
-    if body.rating is not None:
+    if body.rating:
         review.rating = body.rating
-    if body.thumbnail is not None:
+    if body.thumbnail:
         review.thumbnail = body.thumbnail
     review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
 
-    # 삭제된 이미지 처리
-    if deleted_images:
-        for file_name in deleted_images:
-            try:
-                # S3에서 삭제
-                s3_client.delete_object(Bucket=settings.BUCKET_NAME, Key=file_name)
-                # 데이터베이스에서 삭제
-                await review_repo.delete_image_by_filepath(file_name)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to delete image: {str(e)}",
-                )
+    # 업로드된 이미지 처리
+    review_images = []
+    for url in uploaded_urls:
+        # 업로드된 이미지가 URL로 제공되면 ReviewImage 객체로 처리
+        review_image = ReviewImage(
+            filepath=url,
+            source_type=ImageSourceType.LINK,  # 업로드된 이미지의 경우 링크로 저장
+            user_id=user_id,
+            is_temporary=False,
+            created_at=datetime.now(ZoneInfo("Asia/Seoul")),
+            updated_at=datetime.now(ZoneInfo("Asia/Seoul")),
+        )
+        # 이미지 저장
+        review_images.append(review_image)
 
+    # 삭제된 이미지 처리
+    for file_name in deleted_images:
+        try:
+            s3_client.delete_object(Bucket=settings.BUCKET_NAME, Key=file_name)
+            await review_repo.delete_image_by_filepath(file_name)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete image: {str(e)}",
+            )
+
+    # 리뷰에 업로드된 이미지 연결
+    review.images.extend(review_images)
+
+    # 리뷰 저장
     await review_repo.save_review(review)
+
+    # 응답 반환
     return ReviewUpdateResponse(
         review_id=review.id,
         title=review.title,

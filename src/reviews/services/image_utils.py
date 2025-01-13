@@ -82,10 +82,13 @@ BUCKET_NAME = settings.BUCKET_NAME
 transfer_config = TransferConfig(multipart_threshold=10 * 1024 * 1024)
 
 
-async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str]) -> List[ReviewImage]:
+async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str], user_id: str) -> List[ReviewImage]:
     """
     업로드된 URL은 그대로 유지하고, 삭제된 URL은 S3에서 제거
     """
+    if not user_id:
+        raise ValueError("user_id is required")
+
     # 삭제된 URL 처리
     for url in deleted_urls:
         key = url.split("/")[-1]
@@ -95,7 +98,9 @@ async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str]) -
             raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")
 
     # 업로드된 URL을 ReviewImage 객체로 변환
-    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD) for url in uploaded_urls]
+    review_images = [
+        ReviewImage(user_id=user_id, filepath=url, source_type=ImageSourceType.UPLOAD) for url in uploaded_urls
+    ]
 
     return review_images
 

@@ -1,15 +1,38 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 
+from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.comment_router import comment_router
 from src.reviews.router.image_router import image_router
 from src.reviews.router.review_router import review_router
 from src.reviews.router.websocket_router import websocket_router
+from src.reviews.services.image_utils import start_scheduler, stop_scheduler
 from src.travel.router.travel_router import router as travel_router
 from src.user.router.router import router
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # 시작 이벤트
+    print("Lifespan started")  # 디버깅용
+
+    review_repo = ReviewRepo()  # ReviewRepo 인스턴스 생성
+    start_scheduler(review_repo)  # 스케줄러 시작
+
+    yield  # lifespan의 중간 작업 실행
+
+    # 종료 이벤트
+    stop_scheduler()  # 스케줄러 종료
+    print("Lifespan ended")  # 디버깅용
+
+
+# FastAPI 애플리케이션 생성
+app = FastAPI(lifespan=lifespan)
 security = HTTPBearer()
 
 # 허용할 출처(origin) 리스트

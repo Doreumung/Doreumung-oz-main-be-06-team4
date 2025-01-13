@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer

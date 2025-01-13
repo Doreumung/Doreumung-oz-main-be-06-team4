@@ -47,7 +47,7 @@ async def upload_images(
     )
 
     # 데이터베이스에 이미지 저장
-    saved_image = await image_repo.add_image(new_image)
+    saved_image = await image_repo.save_image(new_image)
 
     # `ReviewImageResponse` 생성
     uploaded_image_response = ReviewImageResponse(

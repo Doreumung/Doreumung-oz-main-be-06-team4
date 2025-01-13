@@ -95,7 +95,7 @@ async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str]) -
             raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")
 
     # 업로드된 URL을 ReviewImage 객체로 변환
-    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD.value) for url in uploaded_urls]
+    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD) for url in uploaded_urls]
 
     return review_images
 
@@ -184,12 +184,12 @@ async def delete_file(image: ReviewImage) -> ReviewImage:
     이미지 삭제 처리 함수
     - 로컬 파일 또는 S3에서 파일 삭제
     """
-    if image.source_type == ImageSourceType.UPLOAD.value:
+    if image.source_type == ImageSourceType.UPLOAD:
         file_path = Path(image.filepath)
         if file_path.exists():
             file_path.unlink()
             print(f"Local file deleted: {file_path}")  # 디버깅 로그
-    elif image.source_type == ImageSourceType.LINK.value:
+    elif image.source_type == ImageSourceType.LINK:
         key = Path(image.filepath).name
         try:
             s3_client.delete_object(Bucket="bucket-name", Key=key)

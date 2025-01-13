@@ -15,17 +15,6 @@ class ImageSourceType(StrEnum):
     UPLOAD = "upload"
     LINK = "link"
 
-    @classmethod
-    def _missing_(cls, value: Any) -> "ImageSourceType":
-        # 대소문자를 무시하고 ENUM 값 비교
-        if isinstance(value, str):
-            value = value.lower()
-            for item in cls:
-                if item.value == value:
-                    return item
-        # 유효하지 않은 값에 대한 예외
-        raise ValueError(f"{value} is not a valid {cls.__name__}")
-
 
 KST = timezone(timedelta(hours=9))
 
@@ -36,7 +25,7 @@ class ReviewImage(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=True)
     filepath: str = Field(sa_column=Column(Text, nullable=True))
-    source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=True)  # type: ignore # 이미지 출처 (업로드/링크)
+    source_type: Optional[ImageSourceType] = None  # 이미지 출처 (업로드/링크)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(KST),
         nullable=False,

@@ -40,7 +40,7 @@ async def upload_images(
         id=0,  # 업로드된 이미지는 아직 DB에 저장되지 않았으므로 임시로 0 설정
         review_id=0,  # 리뷰 ID가 없는 경우 0으로 설정
         filepath=uploaded_url,
-        source_type=source_type.value,  # type: ignore
+        source_type=source_type,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )

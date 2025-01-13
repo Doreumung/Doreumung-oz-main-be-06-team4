@@ -107,7 +107,7 @@ class ReviewRepo:
         # 조건을 and_로 묶어 더 명확하게 표현
         condition = and_(
             ReviewImage.review_id == review_id,  # type: ignore
-            ReviewImage.source_type == ImageSourceType.LINK.value,  # type: ignore
+            ReviewImage.source_type == ImageSourceType.LINK,  # type: ignore
         )
 
         # select 호출

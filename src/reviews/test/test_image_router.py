@@ -74,9 +74,9 @@ async def test_delete_images_handler() -> None:
 
     mock_images: Dict[str, ReviewImage] = {
         "test_image.jpg": ReviewImage(
-            id=1, filepath=f"/local/path/{file_names[0]}", source_type=ImageSourceType.UPLOAD.value
+            id=1, filepath=f"/local/path/{file_names[0]}", source_type=ImageSourceType.UPLOAD
         ),
-        "s3_image.jpg": ReviewImage(id=2, filepath=s3_image_url, source_type=ImageSourceType.UPLOAD.value),
+        "s3_image.jpg": ReviewImage(id=2, filepath=s3_image_url, source_type=ImageSourceType.UPLOAD),
     }
 
     async def mock_execute(query: Any) -> Mock:

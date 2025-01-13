@@ -94,11 +94,11 @@ async def create_review(
             )
 
         # 이미지 삭제
-        if image.source_type == ImageSourceType.UPLOAD.value:
+        if image.source_type == ImageSourceType.UPLOAD:
             file_path = Path(image.filepath)
             if file_path.exists():
                 file_path.unlink()
-        elif image.source_type == ImageSourceType.LINK.value:
+        elif image.source_type == ImageSourceType.LINK:
             key = Path(image.filepath).name
             s3_client.delete_object(Bucket="bucket-name", Key=key)
 

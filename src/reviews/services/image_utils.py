@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 import boto3
 import requests  # type: ignore
@@ -246,14 +247,14 @@ async def delete_file(image: ReviewImage) -> ReviewImage:
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=timezone("Asia/Seoul"))
 
 
 async def cleanup_temporary_images(image_repo: ReviewRepo) -> None:
     """
     일정 시간이 지난 임시 이미지를 정리
     """
-    cutoff_time = datetime.now(KST) - timedelta(hours=1)
+    cutoff_time = datetime.now(ZoneInfo("Asia/Seoul")) - timedelta(hours=1)
     query = select(ReviewImage).where(ReviewImage.is_temporary == True, ReviewImage.created_at < cutoff_time)  # type: ignore
     result = await image_repo.session.execute(query)
 

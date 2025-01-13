@@ -1,10 +1,6 @@
-import shutil
 import uuid
-from datetime import datetime
-from os import access
 from pathlib import Path
-from typing import List, Optional, Tuple
-from uuid import uuid4
+from typing import List, Optional
 
 import boto3
 import requests  # type: ignore
@@ -112,7 +108,9 @@ s3_client = boto3.client(
 )
 
 
-async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> tuple[str, ImageSourceType]:
+async def handle_file_or_url(
+    file: Optional[UploadFile], url: Optional[str], user_id: str
+) -> tuple[str, ImageSourceType]:
     """
     파일 또는 URL을 처리하고, S3에 업로드한 URL을 반환합니다.
     """
@@ -126,7 +124,7 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
         validate_file_extension(file.filename)
         validate_file_size(file)
 
-        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+        unique_filename = f"{user_id}/{uuid.uuid4().hex}_{file.filename}"
         try:
             # S3 업로드
             s3_client.upload_fileobj(
@@ -134,6 +132,7 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
                 BUCKET_NAME,
                 unique_filename,
                 Config=transfer_config,
+                ExtraArgs={"Metadata": {"user_name": user_id}},
             )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
             return s3_url, ImageSourceType.UPLOAD
@@ -148,7 +147,7 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
         filename = url.split("/")[-1]
         validate_file_extension(filename)
 
-        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        unique_filename = f"{user_id}/{uuid.uuid4().hex}_{filename}"
         try:
             response = requests.get(url, stream=True)
             if response.status_code != 200:
@@ -160,60 +159,13 @@ async def handle_file_or_url(file: Optional[UploadFile], url: Optional[str]) -> 
                 BUCKET_NAME,
                 unique_filename,
                 Config=transfer_config,
+                ExtraArgs={"Metadata": {"user_name": user_id}},
             )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
             return s3_url, ImageSourceType.LINK
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")
 
-    raise HTTPException(status_code=400, detail="Failed to process file or URL")
-
-
-# 이미지 업로드 처리 함수
-async def process_image_upload(
-    file: Optional[UploadFile],
-    url: Optional[str],
-    review_image_manager: ReviewImageManager,
-) -> Tuple[str, ImageSourceType]:
-    if not file and not url:
-        raise HTTPException(status_code=400, detail="No file or URL provided")
-
-    if file:
-        # 파일 처리
-        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-        try:
-            s3_client.upload_fileobj(
-                file.file,
-                BUCKET_NAME,
-                unique_filename,
-                Config=transfer_config,
-            )
-            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
-            review_image_manager.add_uploaded_url(s3_url)
-            return s3_url, ImageSourceType.UPLOAD
-        except NoCredentialsError:
-            raise HTTPException(status_code=500, detail="AWS credentials not available")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
-
-    if url:
-        # URL 처리
-        unique_filename = f"{uuid.uuid4().hex}_{url.split('/')[-1]}"
-        try:
-            response = requests.get(url, stream=True)
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to fetch URL content")
-            s3_client.upload_fileobj(
-                response.raw,
-                BUCKET_NAME,
-                unique_filename,
-                Config=transfer_config,
-            )
-            s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
-            review_image_manager.add_uploaded_url(s3_url)
-            return s3_url, ImageSourceType.LINK
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")
     raise HTTPException(status_code=400, detail="Failed to process file or URL")
 
 
@@ -227,19 +179,22 @@ async def process_image_deletion(url: str, review_image_manager: ReviewImageMana
         raise HTTPException(status_code=500, detail=f"Failed to delete image: {str(e)}")
 
 
-# 최종 처리 및 저장 함수
-async def finalize_review_images(
-    review_id: int,
-    review_image_manager: ReviewImageManager,
-    review_repo: ReviewRepo,
-) -> None:
-    review_image_manager.finalize_urls()
-    final_urls = review_image_manager.get_final_urls() or []
+async def delete_file(image: ReviewImage) -> ReviewImage:
+    """
+    이미지 삭제 처리 함수
+    - 로컬 파일 또는 S3에서 파일 삭제
+    """
+    if image.source_type == ImageSourceType.UPLOAD.value:
+        file_path = Path(image.filepath)
+        if file_path.exists():
+            file_path.unlink()
+            print(f"Local file deleted: {file_path}")  # 디버깅 로그
+    elif image.source_type == ImageSourceType.LINK.value:
+        key = Path(image.filepath).name
+        try:
+            s3_client.delete_object(Bucket="bucket-name", Key=key)
+            print(f"S3 file deleted: {key}")  # 디버깅 로그
+        except Exception as e:
+            print(f"Failed to delete S3 file: {key}, error: {e}")  # 디버깅 로그
 
-    for url in final_urls:
-        new_image = ReviewImage(
-            review_id=review_id,
-            filepath=url,
-            source_type=ImageSourceType.UPLOAD.value,  # Assuming all are uploads
-        )
-        await review_repo.save_image(new_image)
+    return image

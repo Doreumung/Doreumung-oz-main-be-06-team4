@@ -1,13 +1,9 @@
-import asyncio
-from datetime import datetime
-from typing import AsyncGenerator, Generator, Optional, cast
+from typing import cast
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config.orm import Base
 from src.reviews.models.models import Comment, Like, Review, ReviewImage
 from src.travel.models.travel_route_place import TravelRoute
 from src.user.models.models import User
@@ -53,8 +49,12 @@ async def test_image_relationship(
     await async_session.commit()
 
     # 이미지 생성
-    review_image_upload = ReviewImage(review_id=review.id, filepath="/images/test_upload.jpg", source_type="upload")
-    review_image_link = ReviewImage(review_id=review.id, filepath="https://example.com/image.jpg", source_type="link")
+    review_image_upload = ReviewImage(
+        user_id=str(user.id), review_id=review.id, filepath="/images/test_upload.jpg", source_type="upload"
+    )
+    review_image_link = ReviewImage(
+        user_id=str(user.id), review_id=review.id, filepath="https://example.com/image.jpg", source_type="link"
+    )
 
     async_session.add_all([review_image_upload, review_image_link])
     await async_session.commit()

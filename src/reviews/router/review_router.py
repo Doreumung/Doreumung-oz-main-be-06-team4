@@ -1,21 +1,15 @@
-import asyncio
-import json
-import logging
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile, status
-from sqlalchemy import Integer, String, cast, delete, func
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from sqlalchemy import Integer, String, cast, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
-from uvicorn.protocols.utils import ClientDisconnected
 
 from src import TravelRoute, TravelRoutePlace  # type: ignore
 from src.config import settings
-from src.config.database.connection_async import get_async_session
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
 from src.reviews.dtos.response import (
     GetReviewResponse,
@@ -29,17 +23,9 @@ from src.reviews.models.models import (
     Review,
     ReviewImage,
 )
-from src.reviews.repo.review_repo import CommentRepo, ReviewImageManager, ReviewRepo
-from src.reviews.router.comment_router import delete_comment
-from src.reviews.services.image_utils import (
-    finalize_review_images,
-    handle_image_urls,
-    process_image_deletion,
-    process_image_upload,
-    s3_client,
-)
+from src.reviews.repo.review_repo import ReviewRepo
+from src.reviews.services.image_utils import handle_image_urls, s3_client
 from src.reviews.services.review_utils import validate_order_by
-from src.reviews.services.travel_routes_info import generate_schedule_info
 from src.travel.models.enums import RegionEnum, ThemeEnum
 from src.user.models.models import User
 from src.user.repo.repository import UserRepository
@@ -79,8 +65,50 @@ async def create_review(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # 리뷰 생성 전에 travel_route_id 유효성 확인
+    route_id = body.travel_route_id
+    if route_id is None:
+        raise HTTPException(status_code=400, detail="Travel route ID cannot be null")
+
+    route = await review_repo.get_travel_route_by_id(route_id)
+    if not route:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Travel route with ID {route_id} does not exist.",
+        )
+
+    # deleted_urls 처리
+    for url in deleted_urls:
+        # URL에 해당하는 이미지 검색
+        query = select(ReviewImage).where(
+            ReviewImage.filepath == url,  # type: ignore
+            ReviewImage.user_id == user.id,  # type: ignore # 현재 사용자 소유 여부 확인
+        )
+        result = await review_repo.session.execute(query)
+        image = result.scalars().one_or_none()
+
+        if not image:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Image with URL {url} not found or not owned by the user.",
+            )
+
+        # 이미지 삭제
+        if image.source_type == ImageSourceType.UPLOAD.value:
+            file_path = Path(image.filepath)
+            if file_path.exists():
+                file_path.unlink()
+        elif image.source_type == ImageSourceType.LINK.value:
+            key = Path(image.filepath).name
+            s3_client.delete_object(Bucket="bucket-name", Key=key)
+
+        # 데이터베이스에서 이미지 삭제
+        await review_repo.delete_image(image.id)
+
     # 업로드된 URL 처리
     review_images = await handle_image_urls(uploaded_urls, deleted_urls)
+    if not isinstance(review_images, list):
+        raise HTTPException(status_code=500, detail="Invalid review images format")
 
     # 리뷰 생성
     new_review = Review(

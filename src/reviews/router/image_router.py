@@ -7,10 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlmodel import select
 
 from src.reviews.dtos.response import ReviewImageResponse, UploadImageResponse
-from src.reviews.models.models import ImageSourceType, Review, ReviewImage
-from src.reviews.repo import review_repo
-from src.reviews.repo.review_repo import ReviewImageManager, ReviewRepo
-from src.reviews.services.image_utils import handle_file_or_url, process_image_upload
+from src.reviews.models.models import ReviewImage
+from src.reviews.repo.review_repo import ReviewRepo
+from src.reviews.services.image_utils import delete_file, handle_file_or_url
 from src.user.repo.repository import UserRepository
 from src.user.services.authentication import authenticate
 
@@ -34,7 +33,7 @@ async def upload_images(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     # 파일 업로드 처리
-    uploaded_url, source_type = await handle_file_or_url(file=file, url=url)
+    uploaded_url, source_type = await handle_file_or_url(file=file, url=url, user_id=user_id)
 
     # `ReviewImageResponse` 생성
     uploaded_image = ReviewImageResponse(
@@ -71,21 +70,24 @@ async def delete_images(
     not_found_files = []
 
     for file_name in file_names:
-        query = select(ReviewImage).where(ReviewImage.filepath.contains(file_name))  # type: ignore
+        file_name_normalized = str(Path(file_name).name)  # 파일명 정규화
+        query = select(ReviewImage).where(
+            ReviewImage.filepath.contains(file_name_normalized), ReviewImage.user_id == user_id  # type: ignore
+        )
         result = await image_repo.session.execute(query)
         image = result.unique().scalar_one_or_none()
 
-        if not image:
+        if image:
+            # 데이터베이스에서 이미지 삭제
+            print(f"Deleting image with id: {image.id}")  # 디버깅 로그
+            await image_repo.delete_image(image.id)
+            deleted_files.append(file_name)
+
+            # 파일 삭제 처리
+            await delete_file(image)
+        else:
+            print(f"No image found or unauthorized for file_name: {file_name}")  # 디버깅 로그
             not_found_files.append(file_name)
-            continue
-        # 로컬 파일삭제
-        if image.source_type == ImageSourceType.UPLOAD.value:
-            file_path = Path(image.filepath)
-            if file_path.exists():
-                file_path.unlink()
-        # 데이터 베이스에서 이미지 삭제
-        await image_repo.delete_image(image.id)
-        deleted_files.append(file_name)
 
     return {
         "message": "Image deleted completed",

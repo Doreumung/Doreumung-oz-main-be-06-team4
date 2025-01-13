@@ -52,7 +52,7 @@ async def test_create_review_with_deleted_urls() -> None:
     mock_image = ReviewImage(
         id=1,
         filepath="https://bucket-name.s3.amazonaws.com/old_image.jpg",
-        source_type=ImageSourceType.LINK.value,
+        source_type=ImageSourceType.LINK,
     )
     mock_scalars = Mock(one_or_none=Mock(return_value=mock_image))
     mock_review_repo.session.execute.return_value = Mock(scalars=Mock(return_value=mock_scalars))

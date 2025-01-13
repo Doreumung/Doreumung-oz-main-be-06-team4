@@ -1,15 +1,24 @@
+import shutil
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 import boto3
 import requests  # type: ignore
+from apscheduler.schedulers.base import STATE_STOPPED
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import NoCredentialsError
 from fastapi import HTTPException, UploadFile
+from pytz import timezone  # type: ignore
+from sqlalchemy import select
 
+from src import KST
 from src.config import settings
+from src.reviews.dtos.response import ReviewImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
+from src.reviews.repo import review_repo
 from src.reviews.repo.review_repo import ReviewImageManager, ReviewRepo
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
@@ -99,7 +108,8 @@ async def handle_image_urls(uploaded_urls: List[str], deleted_urls: List[str], u
 
     # 업로드된 URL을 ReviewImage 객체로 변환
     review_images = [
-        ReviewImage(user_id=user_id, filepath=url, source_type=ImageSourceType.UPLOAD) for url in uploaded_urls
+        ReviewImage(user_id=user_id, filepath=url, source_type=ImageSourceType.UPLOAD, is_temporary=True)
+        for url in uploaded_urls
     ]
 
     return review_images
@@ -114,10 +124,11 @@ s3_client = boto3.client(
 
 
 async def handle_file_or_url(
-    file: Optional[UploadFile], url: Optional[str], user_id: str
+    file: Optional[UploadFile], url: Optional[str], user_id: str, image_repo: ReviewRepo
 ) -> tuple[str, ImageSourceType]:
     """
     파일 또는 URL을 처리하고, S3에 업로드한 URL을 반환합니다.
+    임시 저장된 ReviewImage 객체를 DB에 저장합니다.
     """
     if not file and not url:
         raise HTTPException(status_code=400, detail="No file or URL provided")
@@ -130,6 +141,23 @@ async def handle_file_or_url(
         validate_file_size(file)
 
         unique_filename = f"{user_id}/{uuid.uuid4().hex}_{file.filename}"
+        file_location = Path(f"uploads/{unique_filename}")
+        file_location.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 임시 저장
+        image = ReviewImage(
+            review_id=None,  # 아직 리뷰와 연결되지 않음
+            user_id=user_id,
+            filepath=file_location,
+            source_type=ImageSourceType.UPLOAD,
+            is_temporary=True,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        await image_repo.add_image(image)
+
         try:
             # S3 업로드
             s3_client.upload_fileobj(
@@ -147,7 +175,7 @@ async def handle_file_or_url(
             raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
     elif url:
-        # URL 검증 및 S3에 저장
+        # URL 검증 및 처리
         validate_url_size(url)
         filename = url.split("/")[-1]
         validate_file_extension(filename)
@@ -157,6 +185,18 @@ async def handle_file_or_url(
             response = requests.get(url, stream=True)
             if response.status_code != 200:
                 raise HTTPException(status_code=400, detail="Failed to fetch URL content")
+
+            # 임시 저장
+            image = ReviewImage(
+                review_id=None,
+                user_id=user_id,
+                filepath=url,
+                source_type=ImageSourceType.LINK,
+                is_temporary=True,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            await image_repo.add_image(image)
 
             # S3 업로드
             s3_client.upload_fileobj(
@@ -203,3 +243,55 @@ async def delete_file(image: ReviewImage) -> ReviewImage:
             print(f"Failed to delete S3 file: {key}, error: {e}")  # 디버깅 로그
 
     return image
+
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+scheduler = AsyncIOScheduler(timezone=timezone("Asia/Seoul"))
+
+
+async def cleanup_temporary_images(image_repo: ReviewRepo) -> None:
+    """
+    일정 시간이 지난 임시 이미지를 정리
+    """
+    cutoff_time = datetime.now(ZoneInfo("Asia/Seoul")) - timedelta(hours=1)
+    query = select(ReviewImage).where(ReviewImage.is_temporary == True, ReviewImage.created_at < cutoff_time)  # type: ignore
+    result = await image_repo.session.execute(query)
+
+    images = result.scalars().all()
+
+    for image in images:
+        try:
+            # 파일 삭제
+            await delete_file(image)
+            # 데이터베이스에서 삭제
+            await image_repo.delete_image(image.id)
+        except Exception as e:
+            print(f"Failed to cleanup image {image.id}: {e}")
+
+
+def start_scheduler(image_repo: ReviewRepo) -> None:
+    """
+    스케줄러 시작 함수
+    """
+    if scheduler.running:
+        print("Scheduler is already running")
+        return  # 실행 중이면 중단
+
+    print(f"Attempting to start scheduler with image_repo: {image_repo}")
+    scheduler.add_job(
+        cleanup_temporary_images,
+        "interval",
+        hours=1,
+        kwargs={"image_repo": image_repo},
+    )
+    scheduler.start()
+    print("Scheduler started")
+
+
+def stop_scheduler() -> None:
+    """
+    스케줄러 정지 함수
+    """
+    scheduler.shutdown()
+    print("Scheduler stopped")

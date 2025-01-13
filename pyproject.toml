@@ -37,6 +37,8 @@ websockets = "^14.1"
 boto3 = "^1.35.97"
 moto = "^5.0.26"
 requests-mock = "^1.12.1"
+apscheduler = "^3.11.0"
+tzlocal = "^5.2"
 
 
 [build-system]

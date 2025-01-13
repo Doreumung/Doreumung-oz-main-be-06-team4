@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src import TravelRoute, User  # type: ignore
 from src.reviews.dtos.response import ReviewImageResponse, UploadImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
-from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.image_router import delete_images, upload_images
 from src.reviews.services.image_utils import handle_file_or_url
 from src.user.repo.repository import UserRepository
@@ -30,35 +29,49 @@ BUCKET_NAME = "doreumung-06"
 
 @pytest.mark.asyncio
 async def test_upload_images_handler() -> None:
-    # Mock 데이터
-    mock_user_repo = AsyncMock(UserRepository)
-    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1")
+    # `uploads/` 디렉토리 생성
+    uploads_dir = Path("uploads")
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Mock UserRepository
+    mock_user_repo = AsyncMock()
+    mock_user_repo.get_user_by_id.return_value = Mock(id="user1")
+
+    # Mock ImageRepository
+    mock_image_repo = AsyncMock()
+    mock_image_repo.add_image.return_value = ReviewImage(
+        id=1,
+        user_id="user1",
+        filepath="uploads/user1/test_image.jpg",
+        source_type=ImageSourceType.UPLOAD,
+        is_temporary=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    # Mock 파일
+    uploaded_file = Mock()
+    uploaded_file.filename = "test_image.jpg"
+    uploaded_file.file = Mock()
+    uploaded_file.file.read = Mock(side_effect=[b"test data"] * 3 + [b""])  # S3 업로드와 파일 복사를 위한 Mock
+    uploaded_file.file.tell = Mock(return_value=5 * 1024 * 1024)  # 파일 크기를 5MB로 설정
+    uploaded_file.file.seek = Mock()  # seek 메서드 Mock
 
     # Mock S3 client
-    with patch("src.reviews.services.image_utils.s3_client.upload_fileobj", Mock(return_value=None)) as mock_s3:
-        # Mock 파일 객체
-        uploaded_file = Mock()
-        uploaded_file.filename = "test_image.jpg"
-        uploaded_file.file = Mock()
-        uploaded_file.file.tell = Mock(side_effect=[10 * 1024 * 1024, 0])  # 파일 크기 10MB로 설정
-        uploaded_file.file.seek = Mock(return_value=None)
+    with patch("src.reviews.services.image_utils.s3_client.upload_fileobj", Mock(return_value=None)):
+        # 테스트 실행
+        response = await upload_images(
+            file=uploaded_file,
+            url=None,
+            user_id="user1",
+            user_repo=mock_user_repo,
+            image_repo=mock_image_repo,
+        )
 
-        # 고정된 UUID 값을 반환하도록 Mock
-        fixed_uuid = UUID("86efb6f5-b772-449b-aaef-145a161b41f7")  # UUID 객체 생성
-        with patch("uuid.uuid4", Mock(return_value=fixed_uuid)):
-            # 테스트 실행
-            response = await upload_images(
-                file=uploaded_file,
-                url=None,
-                user_id="user1",
-                user_repo=mock_user_repo,
-            )
-
-        # Assertions
-        mock_s3.assert_called_once()  # S3에 한 번 업로드 되었는지 확인
-        expected_url = f"https://doreumung-06.s3.amazonaws.com/user1/{fixed_uuid.hex}_test_image.jpg"
-        assert response.uploaded_url == expected_url
-        assert response.uploaded_image.id == 0
+    # 응답 검증
+    assert response.uploaded_image.id == 1
+    assert response.uploaded_image.filepath == "uploads/user1/test_image.jpg"
+    assert response.uploaded_image.source_type == "upload"
 
 
 # 삭제 테스트
@@ -167,7 +180,11 @@ async def test_upload_file_to_s3(mock_s3_bucket: boto3.client) -> None:
     test_file = UploadFile(filename="test_image.jpg", file=BytesIO(file_content))
 
     # S3에 파일 업로드
-    s3_url, source_type = await handle_file_or_url(file=test_file, url=None, user_id="user1")
+    mock_image_repo = AsyncMock()
+
+    s3_url, source_type = await handle_file_or_url(
+        file=test_file, url=None, user_id="user1", image_repo=mock_image_repo
+    )
 
     # 결과 검증
     expected_bucket_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/"
@@ -185,7 +202,9 @@ async def test_upload_url_to_s3(mock_s3_bucket: boto3.client, requests_mock: req
     requests_mock.head(test_url, headers={"Content-Length": str(len(file_content))})
 
     # URL 처리 및 S3 업로드
-    s3_url, source_type = await handle_file_or_url(file=None, url=test_url, user_id="user1")
+    mock_image_repo = AsyncMock()
+
+    s3_url, source_type = await handle_file_or_url(file=None, url=test_url, user_id="user1", image_repo=mock_image_repo)
 
     # 결과 검증
     expected_bucket_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/"

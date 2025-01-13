@@ -26,6 +26,7 @@ class ReviewImage(SQLModel, table=True):
     review_id: int = Field(foreign_key="reviews.id", nullable=True)
     filepath: str = Field(sa_column=Column(Text, nullable=True))
     source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType, name="imagesourcetype", create_type=False), nullable=True)  # type: ignore
+    is_temporary: bool = Field(default=True)  # 임시 저장 상태
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(KST),
         nullable=False,

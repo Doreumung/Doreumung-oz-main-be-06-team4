@@ -42,6 +42,7 @@ class ReviewResponse(BaseModel):
     updated_at: datetime
     thumbnail: Optional[str]
     images: Optional[List[str]]
+    uploaded_image: UploadImageResponse
 
     class Config:
         from_attributes = True

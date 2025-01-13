@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List
-from zoneinfo import ZoneInfo
 
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter

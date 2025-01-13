@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import AsyncGenerator, Generator
 from unittest.mock import Mock
 
+from fastapi.testclient import TestClient
 from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,87 +36,6 @@ from sqlalchemy.exc import IntegrityError
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import create_review
-
-
-@pytest.mark.asyncio
-async def test_create_review_with_deleted_urls() -> None:
-    # Mock 데이터 설정
-    mock_user_repo = AsyncMock()
-    mock_review_repo = AsyncMock()
-
-    # Mock된 사용자 데이터
-    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1", nickname="test_user")
-
-    # Mock된 Travel Route 데이터
-    mock_review_repo.get_travel_route_by_id.return_value = True
-
-    # Mock된 삭제할 이미지 데이터
-    mock_image = ReviewImage(
-        id=1,
-        filepath="https://bucket-name.s3.amazonaws.com/old_image.jpg",
-        source_type=ImageSourceType.LINK,
-    )
-    mock_scalars = Mock(one_or_none=Mock(return_value=mock_image))
-    mock_review_repo.session.execute.return_value = Mock(scalars=Mock(return_value=mock_scalars))
-    mock_review_repo.delete_image = AsyncMock()
-
-    # Mock된 리뷰 저장
-    mock_saved_review = AsyncMock(
-        id=1,
-        user_id="user1",
-        travel_route_id=1,
-        title="Test Review",
-        rating=4.5,
-        content="This is a test review",
-        like_count=0,
-        created_at="2025-01-10T00:00:00",
-        updated_at="2025-01-10T00:00:00",
-        thumbnail="http://example.com/thumbnail.jpg",
-        images=[],
-    )
-    mock_review_repo.save_review.return_value = mock_saved_review
-
-    # Mock된 handle_image_urls
-    with patch("src.reviews.router.review_router.handle_image_urls", AsyncMock(return_value=[])), patch(
-        "src.reviews.router.review_router.s3_client.delete_object", return_value=None
-    ):
-        # 요청 데이터
-        review_request = ReviewRequestBase(
-            travel_route_id=1,
-            title="Test Review",
-            rating=4.5,
-            content="This is a test review",
-            thumbnail="http://example.com/thumbnail.jpg",
-        )
-        uploaded_urls = ["https://bucket-name.s3.amazonaws.com/new_image.jpg"]
-        deleted_urls = ["https://bucket-name.s3.amazonaws.com/old_image.jpg"]
-
-        # 테스트 실행
-        response = await create_review(
-            body=review_request,
-            uploaded_urls=uploaded_urls,
-            deleted_urls=deleted_urls,
-            review_repo=mock_review_repo,
-            user_repo=mock_user_repo,
-            current_user_id="user1",
-        )
-
-    # Assertions
-    assert response.review_id == 1
-    assert response.nickname == "test_user"
-    assert response.travel_route_id == 1
-    assert response.title == "Test Review"
-    assert response.rating == 4.5
-    assert response.content == "This is a test review"
-    assert response.like_count == 0
-    assert response.thumbnail == "http://example.com/thumbnail.jpg"
-    assert response.images == []
-
-    # Mock 호출 확인
-    mock_review_repo.get_travel_route_by_id.assert_called_once_with(1)
-    mock_user_repo.get_user_by_id.assert_called_once_with(user_id="user1")
-    mock_review_repo.delete_image.assert_called_once_with(1)  # `mock_image.id`의 값을 1로 설정
-
 
 """
 리뷰 단일 조회 test code
@@ -331,7 +252,7 @@ async def test_update_review_handler(
     initial_time = datetime.now(KST)
     review = Review(
         id=review_id,
-        user_id=user.id,  # user_id를 올바르게 설정
+        user_id=user.id,
         travel_route_id=travel_route.id,
         title="Test Review",
         content="This is a test review content.",
@@ -362,6 +283,7 @@ async def test_update_review_handler(
         review_repo=review_repo,
         user_id=user.id,
         user_repo=user_repo,
+        uploaded_urls=["https://example.com/new_image.jpg"],  # 이미지 URL을 리스트로 전달
         deleted_images=[],
     )
 

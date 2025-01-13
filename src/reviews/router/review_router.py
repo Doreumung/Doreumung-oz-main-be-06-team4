@@ -83,7 +83,7 @@ async def create_review(
             ReviewImage.user_id == user.id,  # type: ignore
         )
         result = await review_repo.session.execute(query)
-        image = result.scalars().one_or_none()
+        image = result.scalars().first()
         if not image:
             raise HTTPException(status_code=404, detail="Image not found")
 
@@ -281,14 +281,16 @@ async def get_all_review_handler(
 
     # 정렬 컬럼 및 방향 설정
     valid_order_by_columns = ["created_at", "title", "like_count", "comment_count", "rating"]
-    if order_by == "likes":
+    if order_by == "like_count":
         order_column = like_count_subquery.c.like_count
-    elif order_by == "comments":
+    elif order_by == "comment_count":
         order_column = comment_count_subquery.c.comment_count
     elif order_by == "rating":
         order_column = Review.rating  # type: ignore
+    elif order_by in valid_order_by_columns:
+        order_column = getattr(Review, order_by)
     else:
-        order_column = validate_order_by(order_by, set(valid_order_by_columns))
+        raise HTTPException(status_code=400, detail=f"Invalid order_by field: {order_by}")
 
     if order.lower() == "asc":
         query = query.order_by(order_column.asc())

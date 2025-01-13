@@ -156,7 +156,7 @@ async def handle_file_or_url(
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
-        await image_repo.add_image(image)
+        await image_repo.save_image(image)
 
         try:
             # S3 업로드
@@ -196,7 +196,7 @@ async def handle_file_or_url(
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
-            await image_repo.add_image(image)
+            await image_repo.save_image(image)
 
             # S3 업로드
             s3_client.upload_fileobj(

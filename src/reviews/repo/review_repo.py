@@ -127,27 +127,6 @@ class ReviewRepo:
         result = await self.session.execute(query)
         return result.scalars().first()
 
-    async def add_image(self, image: ReviewImage) -> Optional[ReviewImage]:
-        async with self.session.begin():
-            self.session.add(image)
-            return image
-
-    async def get_temporary_images_by_user(self, user_id: str) -> List[ReviewImage]:
-        query = select(ReviewImage).where(ReviewImage.user_id == user_id, ReviewImage.is_temporary == True)  # type: ignore
-        result = await self.session.execute(query)
-        return result.scalars().all()  # type:ignore
-
-    async def update_images_with_review(self, user_id: str, review_id: int) -> None:
-        from sqlalchemy import update
-
-        query = (
-            update(ReviewImage)
-            .where(ReviewImage.user_id == user_id, ReviewImage.is_temporary == True)  # type: ignore
-            .values(review_id=review_id, is_temporary=False, updated_at=datetime.now())
-        )
-        async with self.session.begin():
-            await self.session.execute(query)
-
 
 class CommentRepo:
     def __init__(self, session: AsyncSession = Depends(get_async_session)):

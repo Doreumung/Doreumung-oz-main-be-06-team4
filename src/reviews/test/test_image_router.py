@@ -39,7 +39,7 @@ async def test_upload_images_handler() -> None:
 
     # Mock ImageRepository
     mock_image_repo = AsyncMock()
-    mock_image_repo.add_image.return_value = ReviewImage(
+    mock_image_repo.save_image.return_value = ReviewImage(
         id=1,
         user_id="user1",
         filepath="uploads/user1/test_image.jpg",

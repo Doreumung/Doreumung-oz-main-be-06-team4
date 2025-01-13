@@ -19,11 +19,12 @@ from src.reviews.dtos.response import (
     UploadImageResponse,
 )
 from src.reviews.models.models import (
+    KST,
     Comment,
     ImageSourceType,
     Like,
     Review,
-    ReviewImage, KST,
+    ReviewImage,
 )
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.services.image_utils import handle_image_urls, s3_client
@@ -385,7 +386,6 @@ async def update_review_handler(
             is_temporary=False,
             created_at=datetime.now(KST),
             updated_at=datetime.now(KST),
-
         )
         # 이미지 저장
         review_images.append(review_image)

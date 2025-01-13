@@ -109,16 +109,20 @@ async def create_review(
 
     # 리뷰 저장
     saved_review = await review_repo.save_review(new_review)
+    if saved_review is None:
+        raise HTTPException(status_code=404, detail="Saved review not found")
 
     # 이미지를 리뷰에 연결하기 위한 추가 로직
-    images = await review_repo.get_image_by_id(saved_review.id)  # type: ignore
+    images = await review_repo.get_image_by_id(saved_review.id)
+    if not images:
+        raise HTTPException(status_code=404, detail="No images found for the review")
 
     # `UploadImageResponse` 생성
     uploaded_image_response = UploadImageResponse(
         uploaded_image=ReviewImageResponse(
             id=images[0].id,
-            review_id=saved_review.id,  # type: ignore
-            filepath=images[0].filepath,
+            review_id=saved_review.id,
+            filepath=str(images[0].filepath),
             source_type=images[0].source_type,  # 올바른 enum 값을 반환
             created_at=images[0].created_at,
             updated_at=images[0].updated_at,
@@ -127,7 +131,7 @@ async def create_review(
             ReviewImageResponse(
                 id=image.id,
                 review_id=image.review_id,
-                filepath=image.filepath,
+                filepath=str(image.filepath),
                 source_type=image.source_type,
                 created_at=image.created_at,
                 updated_at=image.updated_at,
@@ -249,8 +253,10 @@ async def get_all_review_handler(
     )
     # 댓글 개수 계산 서브 쿼리
     comment_count_subquery = (
-        select(cast(Review.id, Integer), func.count("*").label("comment_count"))
-        .join(Comment, cast(Review.id, Integer) == Comment.review_id)
+        select(
+            cast(Review.id, Integer).label("review_id"), func.count(Comment.id).label("comment_count")  # type: ignore
+        )
+        .join(Comment, Comment.review_id == Review.id)  # type: ignore
         .group_by(cast(Review.id, Integer))
         .subquery()
     )
@@ -270,7 +276,7 @@ async def get_all_review_handler(
         )
         .join(User, User.id == Review.user_id)  # type: ignore
         .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
-        .outerjoin(comment_count_subquery, cast(Review.id, Integer) == comment_count_subquery.c.id)
+        .outerjoin(comment_count_subquery, cast(Review.id, Integer) == comment_count_subquery.c.review_id)
     )
 
     # 정렬 컬럼 및 방향 설정

@@ -39,6 +39,7 @@ class GetTravelRouteOneResponse(BaseModel):
 
 class GetTravelRouteListResponse(BaseModel):
     travel_route_id: int
+    review_id: list[int]
     user_id: str
     title: str
     schedule: ScheduleInfo

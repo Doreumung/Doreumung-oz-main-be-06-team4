@@ -206,8 +206,9 @@ async def generate_dto(travel_route: TravelRoute, user_id: str) -> GetTravelRout
         dinner=travel_route.dinner,
     )
     config = TravelRouteConfig(regions=travel_route.regions, themes=travel_route.themes, schedule=schedule)
+    review_id = [i.id for i in travel_route.reviews]
     return GetTravelRouteListResponse(
-        travel_route=route, travel_route_id=travel_route.id, user_id=user_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
+        travel_route=route, travel_route_id=travel_route.id, user_id=user_id, review_id=review_id, title=travel_route.title, schedule=schedule_info, config=config  # type: ignore
     )
 
 
@@ -216,6 +217,7 @@ async def get_travel_routes(
     page: int, size: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
 ) -> GetTravelRouteListPaginationResponse:
     travel_route_list = await travel_route_repo.get_tarvel_route_list_by_user(user_id)
+    print(travel_route_list[0].reviews)
     response_list = []
     for travel_route in travel_route_list:
         response_list.append(await generate_dto(travel_route=travel_route, user_id=user_id))

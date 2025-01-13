@@ -143,31 +143,35 @@ async def handle_file_or_url(
         unique_filename = f"{user_id}/{uuid.uuid4().hex}_{file.filename}"
         file_location = Path(f"uploads/{unique_filename}")
         file_location.parent.mkdir(parents=True, exist_ok=True)
+
+        # 파일을 로컬에 저장
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 임시 저장
-        image = ReviewImage(
-            review_id=None,  # 아직 리뷰와 연결되지 않음
-            user_id=user_id,
-            filepath=file_location,
-            source_type=ImageSourceType.UPLOAD,
-            is_temporary=True,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        await image_repo.save_image(image)
-
+        # S3 업로드
         try:
-            # S3 업로드
-            s3_client.upload_fileobj(
-                file.file,
-                BUCKET_NAME,
-                unique_filename,
-                Config=transfer_config,
-                ExtraArgs={"Metadata": {"user_name": user_id}},
-            )
+            with open(file_location, "rb") as file_to_upload:
+                s3_client.upload_fileobj(
+                    file_to_upload,
+                    BUCKET_NAME,
+                    unique_filename,
+                    Config=transfer_config,
+                    ExtraArgs={"Metadata": {"user_name": user_id}},
+                )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+
+            # 데이터베이스에 이미지 정보 저장
+            image = ReviewImage(
+                review_id=None,  # 아직 리뷰와 연결되지 않음
+                user_id=user_id,
+                filepath=s3_url,
+                source_type=ImageSourceType.UPLOAD,
+                is_temporary=True,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            await image_repo.save_image(image)
+
             return s3_url, ImageSourceType.UPLOAD
         except NoCredentialsError:
             raise HTTPException(status_code=500, detail="AWS credentials not available")
@@ -186,18 +190,6 @@ async def handle_file_or_url(
             if response.status_code != 200:
                 raise HTTPException(status_code=400, detail="Failed to fetch URL content")
 
-            # 임시 저장
-            image = ReviewImage(
-                review_id=None,
-                user_id=user_id,
-                filepath=url,
-                source_type=ImageSourceType.LINK,
-                is_temporary=True,
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            )
-            await image_repo.save_image(image)
-
             # S3 업로드
             s3_client.upload_fileobj(
                 response.raw,
@@ -207,6 +199,19 @@ async def handle_file_or_url(
                 ExtraArgs={"Metadata": {"user_name": user_id}},
             )
             s3_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{unique_filename}"
+
+            # 데이터베이스에 이미지 정보 저장
+            image = ReviewImage(
+                review_id=None,
+                user_id=user_id,
+                filepath=s3_url,  # S3 URL 저장
+                source_type=ImageSourceType.LINK,
+                is_temporary=True,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            await image_repo.save_image(image)
+
             return s3_url, ImageSourceType.LINK
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"URL processing failed: {str(e)}")

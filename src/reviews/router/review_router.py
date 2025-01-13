@@ -23,7 +23,7 @@ from src.reviews.models.models import (
     ImageSourceType,
     Like,
     Review,
-    ReviewImage,
+    ReviewImage, KST,
 )
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.services.image_utils import handle_image_urls, s3_client
@@ -372,7 +372,7 @@ async def update_review_handler(
         review.rating = body.rating
     if body.thumbnail:
         review.thumbnail = body.thumbnail
-    review.updated_at = datetime.now(ZoneInfo("Asia/Seoul"))
+    review.updated_at = datetime.now(KST)
 
     # 업로드된 이미지 처리
     review_images = []
@@ -383,8 +383,9 @@ async def update_review_handler(
             source_type=ImageSourceType.LINK,  # 업로드된 이미지의 경우 링크로 저장
             user_id=user_id,
             is_temporary=False,
-            created_at=datetime.now(ZoneInfo("Asia/Seoul")),
-            updated_at=datetime.now(ZoneInfo("Asia/Seoul")),
+            created_at=datetime.now(KST),
+            updated_at=datetime.now(KST),
+
         )
         # 이미지 저장
         review_images.append(review_image)

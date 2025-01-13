@@ -24,7 +24,7 @@ class TravelRouteRepository:
     async def get_by_id(self, travel_route_id: int) -> TravelRoute | None:
         travel = await self.async_session.execute(
             select(TravelRoute)
-            .options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place))  # type: ignore
+            .options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place), selectinload(TravelRoute.reviews))  # type: ignore
             .where(TravelRoute.id == travel_route_id)  # type: ignore
         )
         travel = travel.scalars().one_or_none()  # type: ignore
@@ -40,7 +40,7 @@ class TravelRouteRepository:
         if user_id is None:
             raise HTTPException(status_code=404, detail="user_id is required")
         else:
-            travel = await self.async_session.execute(select(TravelRoute).options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place)).where(TravelRoute.user_id == user_id))  # type: ignore
+            travel = await self.async_session.execute(select(TravelRoute).options(selectinload(TravelRoute.travel_route_places).selectinload(TravelRoutePlace.place), selectinload(TravelRoute.reviews)).where(TravelRoute.user_id == user_id))  # type: ignore
         if not travel:
             raise HTTPException(status_code=404, detail="Item not found")
         return list(travel.scalars().all())

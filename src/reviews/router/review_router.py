@@ -106,7 +106,7 @@ async def create_review(
         await review_repo.delete_image(image.id)
 
     # 업로드된 URL 처리
-    review_images = await handle_image_urls(uploaded_urls, deleted_urls)
+    review_images = await handle_image_urls(uploaded_urls, deleted_urls, current_user_id)
     if not isinstance(review_images, list):
         raise HTTPException(status_code=500, detail="Invalid review images format")
 

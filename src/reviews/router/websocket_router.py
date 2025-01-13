@@ -53,9 +53,7 @@ async def like_websocket_endpoint(
 ) -> None:
     query_params = websocket.query_params
     review_id = query_params.get("review_id")
-    # review_id 검증
-    if not review_id or not review_id.isdigit():
-        await websocket.send_json({"error": "Invalid review_id"})
+    if review_id is None:
         await websocket.close()
         return
     try:

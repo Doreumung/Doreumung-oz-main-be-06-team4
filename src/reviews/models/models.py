@@ -22,6 +22,7 @@ KST = timezone(timedelta(hours=9))
 class ReviewImage(SQLModel, table=True):
     __tablename__ = "review_images"
     id: int = Field(default=None, primary_key=True)
+    user_id: str = Field(foreign_key="users.id", nullable=False)
     review_id: int = Field(foreign_key="reviews.id", nullable=True)
     filepath: str = Field(sa_column=Column(Text, nullable=True))
     source_type: ImageSourceType = Field(sa_type=SqlEnum(ImageSourceType), nullable=True)  # type: ignore # 이미지 출처 (업로드/링크)

@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy import Integer, and_, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import TravelRoute  # type: ignore
 from src.config.database.connection_async import get_async_session
 from src.reviews.models.models import Comment, ImageSourceType, Review, ReviewImage
 
@@ -114,6 +115,16 @@ class ReviewRepo:
 
         # 결과 반환
         return [row[0] for row in result.all()]
+
+    async def get_travel_route_by_id(self, travel_route_id: int) -> Optional[TravelRoute]:
+        """
+        travel_route_id에 해당하는 TravelRoute를 조회합니다.
+        :param travel_route_id: 조회할 travel_route의 ID
+        :return: TravelRoute 객체 또는 None
+        """
+        query = select(TravelRoute).where(TravelRoute.id == travel_route_id)  # type: ignore
+        result = await self.session.execute(query)
+        return result.scalars().first()
 
 
 class CommentRepo:

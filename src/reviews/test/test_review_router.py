@@ -1,30 +1,13 @@
 from datetime import datetime, timedelta
-from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock
 
-import pytest
-from fastapi import UploadFile
-from fastapi.testclient import TestClient
 from sqlalchemy import Integer, cast, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.datastructures import Headers
 
 from src.reviews.dtos.request import ReviewRequestBase, ReviewUpdateRequest
-from src.reviews.dtos.response import (
-    GetReviewResponse,
-    ReviewImageResponse,
-    ReviewResponse,
-    ReviewUpdateResponse,
-)
-from src.reviews.models.models import (
-    Comment,
-    ImageSourceType,
-    Like,
-    Review,
-    ReviewImage,
-)
+from src.reviews.dtos.response import GetReviewResponse, ReviewUpdateResponse
+from src.reviews.models.models import Comment, Like
 from src.reviews.repo.review_repo import ReviewRepo
 from src.reviews.router.review_router import (
     create_review,
@@ -42,47 +25,73 @@ from src.user.repo.repository import UserRepository
 리뷰 생성 test code
 """
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+
+from src.reviews.models.models import ImageSourceType, Review, ReviewImage
+from src.reviews.repo.review_repo import ReviewRepo
+from src.reviews.router.review_router import create_review
+
 
 @pytest.mark.asyncio
-async def test_create_review_handler() -> None:
-    # Mock 데이터
-    mock_review_repo = AsyncMock(ReviewRepo)
-    mock_user_repo = AsyncMock(UserRepository)
+async def test_create_review_with_deleted_urls() -> None:
+    # Mock 데이터 설정
+    mock_user_repo = AsyncMock()
+    mock_review_repo = AsyncMock()
 
-    # Mock 사용자 데이터
-    mock_user = AsyncMock()
-    mock_user.id = "user1"
-    mock_user.nickname = "test_user"
-    mock_user_repo.get_user_by_id.return_value = mock_user
+    # Mock된 사용자 데이터
+    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1", nickname="test_user")
 
-    # Mock Review 객체
-    mock_review = Review(
+    # Mock된 Travel Route 데이터
+    mock_review_repo.get_travel_route_by_id.return_value = True
+
+    # Mock된 삭제할 이미지 데이터
+    mock_image = ReviewImage(
+        id=1,
+        filepath="https://bucket-name.s3.amazonaws.com/old_image.jpg",
+        source_type=ImageSourceType.LINK.value,
+    )
+    mock_scalars = Mock(one_or_none=Mock(return_value=mock_image))
+    mock_review_repo.session.execute.return_value = Mock(scalars=Mock(return_value=mock_scalars))
+    mock_review_repo.delete_image = AsyncMock()
+
+    # Mock된 리뷰 저장
+    mock_saved_review = AsyncMock(
         id=1,
         user_id="user1",
         travel_route_id=1,
         title="Test Review",
         rating=4.5,
-        content="This is a test review content.",
-        thumbnail="http://example.com/test-thumbnail.jpg",
-        images=[],  # 초기에는 이미지가 비어 있음
+        content="This is a test review",
+        like_count=0,
+        created_at="2025-01-10T00:00:00",
+        updated_at="2025-01-10T00:00:00",
+        thumbnail="http://example.com/thumbnail.jpg",
+        images=[],
     )
-    mock_review_repo.save_review.return_value = mock_review
+    mock_review_repo.save_review.return_value = mock_saved_review
 
-    # Test Body
-    review_request_data = ReviewRequestBase(
-        travel_route_id=1,
-        title="Test Review",
-        rating=4.5,
-        content="This is a test review content.",
-        thumbnail="http://example.com/test-thumbnail.jpg",
-    )
-    uploaded_urls = ["http://example.com/uploaded_image1.jpg"]
-    deleted_urls = ["http://example.com/deleted_image1.jpg"]
-    review_images = [ReviewImage(filepath=url, source_type=ImageSourceType.UPLOAD.value) for url in uploaded_urls]
+    # Mock된 handle_image_urls
+    with patch("src.reviews.router.review_router.handle_image_urls", AsyncMock(return_value=[])), patch(
+        "src.reviews.router.review_router.s3_client.delete_object", return_value=None
+    ):
+        # 요청 데이터
+        review_request = ReviewRequestBase(
+            travel_route_id=1,
+            title="Test Review",
+            rating=4.5,
+            content="This is a test review",
+            thumbnail="http://example.com/thumbnail.jpg",
+        )
+        uploaded_urls = ["https://bucket-name.s3.amazonaws.com/new_image.jpg"]
+        deleted_urls = ["https://bucket-name.s3.amazonaws.com/old_image.jpg"]
 
-    with patch("src.reviews.router.review_router.handle_image_urls", AsyncMock(return_value=review_images)):
+        # 테스트 실행
         response = await create_review(
-            body=review_request_data,
+            body=review_request,
             uploaded_urls=uploaded_urls,
             deleted_urls=deleted_urls,
             review_repo=mock_review_repo,
@@ -91,11 +100,20 @@ async def test_create_review_handler() -> None:
         )
 
     # Assertions
-    assert response.title == review_request_data.title
-    assert response.rating == review_request_data.rating
-    assert response.thumbnail == review_request_data.thumbnail
+    assert response.review_id == 1
     assert response.nickname == "test_user"
-    assert response.images == uploaded_urls
+    assert response.travel_route_id == 1
+    assert response.title == "Test Review"
+    assert response.rating == 4.5
+    assert response.content == "This is a test review"
+    assert response.like_count == 0
+    assert response.thumbnail == "http://example.com/thumbnail.jpg"
+    assert response.images == []
+
+    # Mock 호출 확인
+    mock_review_repo.get_travel_route_by_id.assert_called_once_with(1)
+    mock_user_repo.get_user_by_id.assert_called_once_with(user_id="user1")
+    mock_review_repo.delete_image.assert_called_once_with(1)  # `mock_image.id`의 값을 1로 설정
 
 
 """
@@ -409,7 +427,9 @@ async def test_delete_review_handler(
     async_session.add_all(comments)
     await async_session.commit()
 
-    image = ReviewImage(id=1, review_id=review_id, source_type="upload", filepath="/tmp/test_image.jpg")
+    image = ReviewImage(
+        id=1, user_id=user.id, review_id=review_id, source_type="upload", filepath="/tmp/test_image.jpg"
+    )
     async_session.add(image)
     await async_session.commit()
 

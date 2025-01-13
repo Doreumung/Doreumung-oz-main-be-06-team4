@@ -1,14 +1,10 @@
-import asyncio
 from datetime import datetime
-from typing import AsyncGenerator, Generator, Optional
 
 import pytest
-import pytest_asyncio
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import select
 
-from src.config.orm import Base
 from src.reviews.models.models import Comment, Review, ReviewImage
 from src.reviews.repo.review_repo import CommentRepo, ReviewRepo
 from src.travel.models.travel_route_place import TravelRoute
@@ -139,6 +135,7 @@ async def test_save_image(async_session: AsyncSession, sample_review: list[Revie
     await async_session.commit()
     image_data = ReviewImage(
         id=1,
+        user_id=sample_review[0].user_id,
         review_id=sample_review[0].id,
         filepath="images/test_image.jpg",
         source_type="upload",
@@ -158,6 +155,7 @@ async def test_get_image_by_id(async_session: AsyncSession, sample_review: list[
     await async_session.commit()
     image_data = ReviewImage(
         id=1,
+        user_id=sample_review[0].user_id,
         review_id=sample_review[0].id,
         filepath="images/test_image.jpg",
         source_type="upload",
@@ -188,6 +186,7 @@ async def test_delete_image(async_session: AsyncSession, sample_review: list[Rev
     await async_session.commit()
     image_data = ReviewImage(
         id=1,
+        user_id=sample_review[0].user_id,
         review_id=sample_review[0].id,
         filepath="images/test_image.jpg",
         source_type="upload",

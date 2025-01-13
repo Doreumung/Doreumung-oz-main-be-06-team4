@@ -2,7 +2,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Dict, Generator, List
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import UUID
 
@@ -19,7 +19,7 @@ from src import TravelRoute, User  # type: ignore
 from src.reviews.dtos.response import ReviewImageResponse, UploadImageResponse
 from src.reviews.models.models import ImageSourceType, Review, ReviewImage
 from src.reviews.repo.review_repo import ReviewRepo
-from src.reviews.router.image_router import upload_images
+from src.reviews.router.image_router import delete_images, upload_images
 from src.reviews.services.image_utils import handle_file_or_url
 from src.user.repo.repository import UserRepository
 
@@ -56,116 +56,93 @@ async def test_upload_images_handler() -> None:
 
         # Assertions
         mock_s3.assert_called_once()  # S3에 한 번 업로드 되었는지 확인
-        expected_url = f"https://doreumung-06.s3.amazonaws.com/{fixed_uuid.hex}_test_image.jpg"
+        expected_url = f"https://doreumung-06.s3.amazonaws.com/user1/{fixed_uuid.hex}_test_image.jpg"
         assert response.uploaded_url == expected_url
+        assert response.uploaded_image.id == 0
 
 
 # 삭제 테스트
 @pytest.mark.asyncio
-async def test_delete_images(async_session: AsyncSession, setup_data: User, setup_travelroute: TravelRoute) -> None:
-    # 테스트 유저 및 리뷰 데이터 생성
-    user = setup_data
-    travel_route = setup_travelroute
-    review = Review(
-        id=100,
-        user_id=user.id,
-        travel_route_id=travel_route.id,
-        title="Test Review",
-        rating=4.0,
-        content="This is a test review.",
-    )
-    async_session.add(review)
-    await async_session.commit()
+async def test_delete_images_handler() -> None:
+    # Mock 데이터
+    mock_user_repo: AsyncMock = AsyncMock()
+    mock_image_repo: AsyncMock = AsyncMock()
 
-    # 임시 디렉토리 설정
-    uploads_dir = Path("/tmp/uploads")
-    uploads_dir.mkdir(parents=True, exist_ok=True)
+    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1")
+    file_names: List[str] = ["test_image.jpg", "s3_image.jpg"]
+    s3_image_url: str = "https://bucket-name.s3.amazonaws.com/s3_image.jpg"
 
-    # 테스트 이미지 생성
-    test_file_path_1 = uploads_dir / "test_image_1.jpg"
-    test_file_path_2 = uploads_dir / "test_image_2.jpg"
-    test_file_path_1.touch()
-    test_file_path_2.touch()
-    with test_file_path_1.open("wb") as f1, test_file_path_2.open("wb") as f2:
-        f1.write(b"test content 1")
-        f2.write(b"test content 2")
+    mock_images: Dict[str, ReviewImage] = {
+        "test_image.jpg": ReviewImage(
+            id=1, filepath=f"/local/path/{file_names[0]}", source_type=ImageSourceType.UPLOAD.value
+        ),
+        "s3_image.jpg": ReviewImage(id=2, filepath=s3_image_url, source_type=ImageSourceType.UPLOAD.value),
+    }
 
-    # 데이터베이스에 ReviewImage 추가
-    image_1 = ReviewImage(
-        id=1,
-        review_id=review.id,
-        filepath=str(test_file_path_1),
-        source_type=ImageSourceType.UPLOAD.value,
-    )
-    image_2 = ReviewImage(
-        id=2,
-        review_id=review.id,
-        filepath=str(test_file_path_2),
-        source_type=ImageSourceType.UPLOAD.value,
-    )
-    async_session.add_all([image_1, image_2])
-    await async_session.commit()
+    async def mock_execute(query: Any) -> Mock:
+        for file_name, image in mock_images.items():
+            if file_name in query.compile(compile_kwargs={"literal_binds": True}).string:
+                return Mock(unique=lambda: Mock(scalar_one_or_none=lambda: image))
+        return Mock(unique=lambda: Mock(scalar_one_or_none=lambda: None))
 
-    # 레포지토리 인스턴스 생성
-    review_repo = ReviewRepo(async_session)
-    user_repo = UserRepository(async_session)
+    mock_image_repo.session.execute = mock_execute
+    mock_image_repo.delete_image = AsyncMock()
 
-    # DELETE 엔드포인트 시뮬레이션
-    async def delete_images_mock(file_names: list[str], user_id: str) -> dict[str, Any]:
-        # 유저 확인
-        user = await user_repo.get_user_by_id(user_id=user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+    # 올바른 s3_client 경로로 수정
+    with patch("src.reviews.services.image_utils.s3_client.delete_object", return_value=None) as mock_s3_delete, patch(
+        "pathlib.Path.exists", return_value=True
+    ), patch("pathlib.Path.unlink", return_value=None):
 
-        deleted_files = []
-        not_found_files = []
+        response: Dict[str, Any] = await delete_images(
+            file_names=file_names,
+            user_id="user1",
+            image_repo=mock_image_repo,
+            user_repo=mock_user_repo,
+        )
 
-        for file_name in file_names:
-            # 파일명으로 이미지 검색
-            query = select(ReviewImage).where(ReviewImage.filepath.like(f"%{file_name}"))  # type: ignore
-            result = await review_repo.session.execute(query)
-            existing_image = result.scalar_one_or_none()
+        mock_user_repo.get_user_by_id.assert_called_once_with(user_id="user1")
+        mock_image_repo.delete_image.assert_any_call(1)
+        mock_image_repo.delete_image.assert_any_call(2)
 
-            if not existing_image:
-                not_found_files.append(file_name)
-                continue
+        assert response["message"] == "Image deleted completed"
+        assert response["deleted_files"] == file_names
+        assert response["not_found_files"] == []
 
-            # 파일 삭제
-            if existing_image.source_type == ImageSourceType.UPLOAD.value:
-                file_path = Path(existing_image.filepath)
-                if file_path.exists():
-                    file_path.unlink()
 
-            # 데이터베이스에서 이미지 삭제
-            await review_repo.session.delete(existing_image)
-            await review_repo.session.commit()
-            deleted_files.append(file_name)
+@pytest.mark.asyncio
+async def test_delete_images_handler_not_found() -> None:
+    """
+    Test delete_images function when no images are found for deletion.
+    """
+    # Mock 데이터
+    mock_user_repo: AsyncMock = AsyncMock()
+    mock_image_repo: AsyncMock = AsyncMock()
 
-        return {
-            "message": "Image deletion completed",
-            "deleted_files": deleted_files,
-            "not_found_files": not_found_files,
-        }
+    # Mock 사용자 데이터
+    mock_user_repo.get_user_by_id.return_value = AsyncMock(id="user1")
+
+    # Mock 이미지 파일 이름
+    file_names: List[str] = ["non_existent_image.jpg"]
+
+    # Mock 실행 함수
+    async def mock_execute(query: Any) -> Mock:
+        return Mock(unique=lambda: Mock(scalar_one_or_none=lambda: None))  # 이미지 없음
+
+    mock_image_repo.session.execute = mock_execute  # 쿼리 실행 Mock
 
     # 테스트 실행
-    file_names = ["test_image_1.jpg", "test_image_2.jpg"]
-    response = await delete_images_mock(file_names=file_names, user_id=user.id)
+    response: Dict[str, Any] = await delete_images(
+        file_names=file_names,
+        user_id="user1",
+        image_repo=mock_image_repo,
+        user_repo=mock_user_repo,
+    )
 
-    # 응답 검증
-    assert response["message"] == "Image deletion completed"
-    assert "test_image_1.jpg" in response["deleted_files"]
-    assert "test_image_2.jpg" in response["deleted_files"]
-    assert not response["not_found_files"]
-
-    # 파일 삭제 검증
-    assert not test_file_path_1.exists()
-    assert not test_file_path_2.exists()
-
-    # 데이터베이스 삭제 검증
-    query = select(ReviewImage).where(ReviewImage.filepath.in_([str(test_file_path_1), str(test_file_path_2)]))  # type: ignore
-    result = await async_session.execute(query)
-    deleted_images = result.scalars().all()
-    assert not deleted_images
+    # Assertions
+    mock_user_repo.get_user_by_id.assert_called_once_with(user_id="user1")
+    assert response["message"] == "Image deleted completed"
+    assert response["deleted_files"] == []
+    assert response["not_found_files"] == file_names
 
 
 @pytest.fixture
@@ -190,7 +167,7 @@ async def test_upload_file_to_s3(mock_s3_bucket: boto3.client) -> None:
     test_file = UploadFile(filename="test_image.jpg", file=BytesIO(file_content))
 
     # S3에 파일 업로드
-    s3_url, source_type = await handle_file_or_url(file=test_file, url=None)
+    s3_url, source_type = await handle_file_or_url(file=test_file, url=None, user_id="user1")
 
     # 결과 검증
     expected_bucket_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/"
@@ -208,7 +185,7 @@ async def test_upload_url_to_s3(mock_s3_bucket: boto3.client, requests_mock: req
     requests_mock.head(test_url, headers={"Content-Length": str(len(file_content))})
 
     # URL 처리 및 S3 업로드
-    s3_url, source_type = await handle_file_or_url(file=None, url=test_url)
+    s3_url, source_type = await handle_file_or_url(file=None, url=test_url, user_id="user1")
 
     # 결과 검증
     expected_bucket_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/"

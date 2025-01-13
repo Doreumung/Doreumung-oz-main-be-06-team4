@@ -83,15 +83,16 @@ async def like_websocket_endpoint(
                         try:
                             like = Like(user_id=data.get("user_id"), review_id=int(data.get("review_id")))
                             await like_repo.save(like)
-                            result = await async_session.execute(
+                            await async_session.execute(
                                 update(Review)
                                 .where(Review.id == int(data.get("review_id")))
                                 .values(like_count=Review.like_count + 1)
                             )
-                            review = result.scalar_one_or_none()
+                            await async_session.refresh(review)
                             await async_session.commit()
                             data["like_count"] = review.like_count  # type:ignore
                         except Exception as e:
+                            print(e)
                             await async_session.rollback()
                             data["like_count"] = original_like_count
                     else:
@@ -101,15 +102,16 @@ async def like_websocket_endpoint(
                         if like:
                             try:
                                 await like_repo.delete(like)
-                                result = await async_session.execute(
+                                await async_session.execute(
                                     update(Review)
                                     .where(Review.id == int(data.get("review_id")))
                                     .values(like_count=Review.like_count - 1)
                                 )
-                                review = result.scalar_one_or_none()
+                                await async_session.refresh(review)
                                 await async_session.commit()
                                 data["like_count"] = review.like_count  # type:ignore
                             except Exception as e:
+                                print(e)
                                 await async_session.rollback()
                                 data["like_count"] = original_like_count
                         else:

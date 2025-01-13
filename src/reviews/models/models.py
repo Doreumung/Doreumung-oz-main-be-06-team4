@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SqlEnum
@@ -14,6 +14,17 @@ if TYPE_CHECKING:
 class ImageSourceType(StrEnum):
     UPLOAD = "upload"
     LINK = "link"
+
+    @classmethod
+    def _missing_(cls, value: Any) -> "ImageSourceType":
+        # 대소문자를 무시하고 ENUM 값 비교
+        if isinstance(value, str):
+            value = value.lower()
+            for item in cls:
+                if item.value == value:
+                    return item
+        # 유효하지 않은 값에 대한 예외
+        raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 
 KST = timezone(timedelta(hours=9))

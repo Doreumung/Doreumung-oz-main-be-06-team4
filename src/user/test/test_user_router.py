@@ -272,16 +272,13 @@ async def test_refresh_token(async_session: AsyncSession, client: AsyncClient) -
 
     # refresh_token 생성
     refresh_token = encode_refresh_token(user_id=user.id)
-
+    cookies = {"refresh_token": refresh_token}
     # TestClient로 API 요청 보내기
-    response = await client.post(
-        "/api/v1/refresh",
-        json={"refresh_token": refresh_token},
-    )
+    response = await client.post("/api/v1/user/refresh", cookies=cookies)
 
     # 응답 검증
-    assert response.status_code == 200
-    assert "access_token" in response.json()
+    assert response.status_code == 204
+    assert "access_token" in response.cookies
 
     # refresh_token 유효성 검증
     payload = decode_refresh_token(refresh_token)

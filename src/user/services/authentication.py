@@ -37,7 +37,7 @@ class JWTPayload(TypedDict):
     exp: int
 
 
-def encode_access_token(user_id: str, expires_delta: timedelta = timedelta(days=7)) -> str:
+def encode_access_token(user_id: str, expires_delta: timedelta = timedelta(hours=1)) -> str:
     expire = datetime.now(KST) + expires_delta
     payload: JWTPayload = {
         "user_id": user_id,

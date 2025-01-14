@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status, Cookie
 from fastapi.responses import RedirectResponse
 
 from src.config import settings
@@ -83,8 +84,8 @@ async def login_handler(
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
         samesite="Strict",  # type: ignore
-        max_age=30 * 60,
-        expires=30 * 60,
+        max_age=60 * 60,
+        expires=60 * 60,
     )
     response.set_cookie(
         key="refresh_token",
@@ -92,8 +93,8 @@ async def login_handler(
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
         samesite="Strict",  # type: ignore
-        max_age=30 * 60,
-        expires=30 * 60,
+        max_age=60 * 60,
+        expires=60 * 60,
     )
 
     return JWTResponse(access_token=access_token, refresh_token=refresh_token)
@@ -241,10 +242,11 @@ async def delete_user_handler(
     status_code=status.HTTP_200_OK,
 )
 async def refresh_access_token_handler(
-    body: RefreshTokenRequest,
+    access_token: Optional[str] = Cookie(),
+    refresh_token: str = Cookie()
 ) -> JWTResponse:
     try:
-        payload = decode_refresh_token(body.refresh_token)
+        payload = decode_refresh_token(refresh_token)
         print(f"Decoded refresh token: {payload}")
 
         new_access_token = encode_access_token(user_id=str(payload["user_id"]))

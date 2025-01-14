@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Response, status, Cookie
+from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 
 from src.config import settings
@@ -81,8 +81,8 @@ async def login_handler(
     response.set_cookie(
         key="access_token",
         value=access_token,
-        httponly=True,
-        secure=False,  # Use True in production (requires HTTPS)
+        httponly=False,
+        secure=True,  # Use True in production (requires HTTPS)
         samesite="None",  # type: ignore
         max_age=60 * 60,
         expires=60 * 60,
@@ -93,8 +93,8 @@ async def login_handler(
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
         samesite="None",  # type: ignore
-        max_age=7 * 24 * 60 * 60,
-        expires=7 * 24 * 60 * 60,
+        max_age=30 * 24 * 60 * 60,
+        expires=30 * 24 * 60 * 60,
     )
 
     return JWTResponse(access_token=access_token, refresh_token=refresh_token)
@@ -237,20 +237,27 @@ async def delete_user_handler(
 
 
 @router.post(
-    "/refresh",
-    response_model=JWTResponse,
-    status_code=status.HTTP_200_OK,
+    "/user/refresh",
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def refresh_access_token_handler(
-    access_token: Optional[str] = Cookie(),
-    refresh_token: str = Cookie()
-) -> JWTResponse:
+    response: Response,
+    refresh_token: str = Cookie(),
+) -> None:
     try:
         payload = decode_refresh_token(refresh_token)
         print(f"Decoded refresh token: {payload}")
 
         new_access_token = encode_access_token(user_id=str(payload["user_id"]))
-        return JWTResponse(access_token=new_access_token, refresh_token=body.refresh_token)
+        response.set_cookie(
+            key="access_token",
+            value=new_access_token,
+            httponly=False,
+            secure=True,  # Use True in production (requires HTTPS)
+            samesite="None",  # type: ignore
+            max_age=60 * 60,
+            expires=60 * 60,
+        )
 
     except HTTPException as e:
         print(f"Refresh token decoding failed: {str(e)}")

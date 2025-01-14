@@ -81,10 +81,10 @@ async def login_handler(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,  # Use True in production (requires HTTPS)
+        secure=False,  # Use True in production (requires HTTPS)
         samesite="None",  # type: ignore
-        max_age=30 * 60,
-        expires=30 * 60,
+        max_age=60 * 60,
+        expires=60 * 60,
     )
     response.set_cookie(
         key="refresh_token",
@@ -92,8 +92,8 @@ async def login_handler(
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
         samesite="None",  # type: ignore
-        max_age=30 * 60,
-        expires=30 * 60,
+        max_age=7 * 24 * 60 * 60,
+        expires=7 * 24 * 60 * 60,
     )
 
     return JWTResponse(access_token=access_token, refresh_token=refresh_token)

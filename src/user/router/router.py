@@ -82,7 +82,7 @@ async def login_handler(
         value=access_token,
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
-        samesite="Strict",  # type: ignore
+        samesite="None",  # type: ignore
         max_age=30 * 60,
         expires=30 * 60,
     )
@@ -91,7 +91,7 @@ async def login_handler(
         value=refresh_token,
         httponly=True,
         secure=True,  # Use True in production (requires HTTPS)
-        samesite="Strict",  # type: ignore
+        samesite="None",  # type: ignore
         max_age=30 * 60,
         expires=30 * 60,
     )

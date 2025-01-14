@@ -276,7 +276,7 @@ async def get_all_review_handler(
             Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
-            Review.like_count.label("like_count"),
+            Review.like_count.label("like_count"),  # type: ignore
             func.coalesce(comment_count_subquery.c.comment_count, 0).label("comment_count"),  # COALESCE 처리
             Review.thumbnail.label("thumbnail"),  # type: ignore
         )
@@ -290,7 +290,7 @@ async def get_all_review_handler(
     if order_by == "like_count":
         order_column = Review.like_count
     elif order_by == "comment_count":
-        order_column = comment_count_subquery.c.comment_count
+        order_column = comment_count_subquery.c.comment_count  # type:ignore
     elif order_by == "rating":
         order_column = Review.rating  # type: ignore
     elif order_by in valid_order_by_columns:
@@ -299,9 +299,9 @@ async def get_all_review_handler(
         raise HTTPException(status_code=400, detail=f"Invalid order_by field: {order_by}")
 
     if order.lower() == "asc":
-        query = query.order_by(order_column.asc())
+        query = query.order_by(order_column.asc())  # type:ignore
     else:
-        query = query.order_by(order_column.desc())
+        query = query.order_by(order_column.desc())  # type:ignore
 
     # 총 리뷰 개수 계산
     total_reviews_result = await review_repo.session.execute(select(func.count()).select_from(Review))

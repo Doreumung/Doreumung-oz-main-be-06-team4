@@ -23,4 +23,4 @@ COPY pyproject.toml poetry.lock alembic.ini ./
 RUN poetry install --no-root --no-dev
 
 
-CMD ["sh", "-c", "poetry install && poetry run alembic upgrade head && poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "poetry lock --no-update && poetry install && poetry run alembic upgrade head && poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000"]

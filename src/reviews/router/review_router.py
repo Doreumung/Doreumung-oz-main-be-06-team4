@@ -48,7 +48,7 @@ VALID_ORDER_BY_COLUMNS = {"created_at", "rating", "title"}
 
 @review_router.post(
     "/reviews",
-    response_model=UploadImageResponse,
+    response_model=UploadImageResponse | dict[str, int],
     status_code=status.HTTP_201_CREATED,
 )
 async def create_review(
@@ -58,7 +58,7 @@ async def create_review(
     review_repo: ReviewRepo = Depends(),
     user_repo: UserRepository = Depends(),
     current_user_id: str = Depends(authenticate),
-) -> UploadImageResponse:
+) -> UploadImageResponse | dict[str, int]:
     """
     리뷰 작성 시 업로드된 이미지 URL을 연결하는 API.
     """
@@ -94,7 +94,9 @@ async def create_review(
         await review_repo.delete_image(image.id)
 
     # 업로드된 URL 처리
-    review_images = await handle_image_urls(uploaded_urls, deleted_urls, current_user_id)
+    review_images = []
+    if uploaded_urls or deleted_urls:
+        review_images = await handle_image_urls(uploaded_urls, deleted_urls, current_user_id)
 
     # 리뷰 생성
     new_review = Review(
@@ -113,35 +115,39 @@ async def create_review(
         raise HTTPException(status_code=404, detail="Saved review not found")
 
     # 이미지를 리뷰에 연결하기 위한 추가 로직
-    images = await review_repo.get_image_by_id(saved_review.id)
-    if not images:
-        raise HTTPException(status_code=404, detail="No images found for the review")
+    if review_images:
+        images = await review_repo.get_image_by_id(saved_review.id)
+        if not images:
+            raise HTTPException(status_code=404, detail="No images found for the review")
 
-    # `UploadImageResponse` 생성
-    uploaded_image_response = UploadImageResponse(
-        uploaded_image=ReviewImageResponse(
-            id=images[0].id,
-            review_id=saved_review.id,
-            filepath=str(images[0].filepath),
-            source_type=images[0].source_type,  # 올바른 enum 값을 반환
-            created_at=images[0].created_at,
-            updated_at=images[0].updated_at,
-        ),
-        all_images=[
-            ReviewImageResponse(
-                id=image.id,
-                review_id=image.review_id,
-                filepath=str(image.filepath),
-                source_type=image.source_type,
-                created_at=image.created_at,
-                updated_at=image.updated_at,
-            )
-            for image in images
-        ],
-        uploaded_url=images[0].filepath,
-    )
+        # `UploadImageResponse` 생성
+        uploaded_image_response = UploadImageResponse(
+            uploaded_image=ReviewImageResponse(
+                id=images[0].id,
+                review_id=saved_review.id,
+                filepath=str(images[0].filepath),
+                source_type=images[0].source_type,  # 올바른 enum 값을 반환
+                created_at=images[0].created_at,
+                updated_at=images[0].updated_at,
+            ),
+            all_images=[
+                ReviewImageResponse(
+                    id=image.id,
+                    review_id=image.review_id,
+                    filepath=str(image.filepath),
+                    source_type=image.source_type,
+                    created_at=image.created_at,
+                    updated_at=image.updated_at,
+                )
+                for image in images
+            ],
+            uploaded_url=images[0].filepath,
+        )
 
-    return uploaded_image_response
+        return uploaded_image_response
+
+    else:
+        return {"review_id": saved_review.id}
 
 
 """

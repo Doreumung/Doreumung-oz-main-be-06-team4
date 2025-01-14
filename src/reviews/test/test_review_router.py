@@ -190,7 +190,7 @@ async def test_get_all_review_handler(
     assert response["reviews"][0]["user_id"] == str(user.id)
     assert response["reviews"][0]["nickname"] == "test_nickname"
     assert "created_at" in response["reviews"][0]
-    # assert response["reviews"][0]["like_count"] == 1  # 첫 리뷰 좋아요 수
+    assert response["reviews"][0]["like_count"] == 0  # 첫 리뷰 좋아요 수
     assert response["reviews"][0]["comment_count"] == 3  # 첫 리뷰 댓글 수
 
     # 정렬 검증 (내림차순 created_at)

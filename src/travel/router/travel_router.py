@@ -217,7 +217,6 @@ async def get_travel_routes(
     page: int, size: int, user_id: str = Depends(authenticate), travel_route_repo: TravelRouteRepository = Depends()
 ) -> GetTravelRouteListPaginationResponse:
     travel_route_list = await travel_route_repo.get_tarvel_route_list_by_user(user_id)
-    print(travel_route_list[0].reviews)
     response_list = []
     for travel_route in travel_route_list:
         response_list.append(await generate_dto(travel_route=travel_route, user_id=user_id))

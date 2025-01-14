@@ -246,23 +246,23 @@ async def get_review_handler(
 async def get_all_review_handler(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, comment_counts, like_counts)"),
+    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, comment_count, like_count)"),
     order: str = Query("desc", description="정렬 방향 (asc or desc)"),
     review_repo: ReviewRepo = Depends(),
 ) -> Dict[str, Any]:
     # 리뷰와 좋아요 개수 계산 서브 쿼리
-    like_count_subquery = (
-        select(cast(Review.id, Integer), func.count("*").label("like_count"))
-        .join(Like, cast(Review.id, Integer) == Like.review_id)
-        .group_by(cast(Review.id, Integer))
-        .subquery()
-    )
+    # like_count_subquery = (
+    #     select(cast(Review.id, Integer), func.count("*").label("like_count"))
+    #     .join(Like, cast(Review.id, Integer) == Like.review_id)
+    #     .group_by(cast(Review.id, Integer))
+    #     .subquery()
+    # )
     # 댓글 개수 계산 서브 쿼리
     comment_count_subquery = (
         select(
             cast(Review.id, Integer).label("review_id"), func.count(Comment.id).label("comment_count")  # type: ignore
         )
-        .join(Comment, Comment.review_id == Review.id)  # type: ignore
+        .outerjoin(Comment, Comment.review_id == Review.id)  # type: ignore
         .group_by(cast(Review.id, Integer))
         .subquery()
     )
@@ -276,21 +276,21 @@ async def get_all_review_handler(
             Review.rating.label("rating"),  # type: ignore
             User.nickname.label("nickname"),  # type: ignore
             Review.created_at.label("created_at"),  # type: ignore
-            like_count_subquery.c.like_count.label("like_count"),
+            Review.like_count.label("like_count"),  # type: ignore
             func.coalesce(comment_count_subquery.c.comment_count, 0).label("comment_count"),  # COALESCE 처리
             Review.thumbnail.label("thumbnail"),  # type: ignore
         )
         .join(User, User.id == Review.user_id)  # type: ignore
-        .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
         .outerjoin(comment_count_subquery, cast(Review.id, Integer) == comment_count_subquery.c.review_id)
+        # .outerjoin(like_count_subquery, cast(Review.id, Integer) == like_count_subquery.c.id)
     )
 
     # 정렬 컬럼 및 방향 설정
     valid_order_by_columns = ["created_at", "title", "like_count", "comment_count", "rating"]
     if order_by == "like_count":
-        order_column = like_count_subquery.c.like_count
+        order_column = Review.like_count
     elif order_by == "comment_count":
-        order_column = comment_count_subquery.c.comment_count
+        order_column = comment_count_subquery.c.comment_count  # type:ignore
     elif order_by == "rating":
         order_column = Review.rating  # type: ignore
     elif order_by in valid_order_by_columns:
@@ -299,9 +299,9 @@ async def get_all_review_handler(
         raise HTTPException(status_code=400, detail=f"Invalid order_by field: {order_by}")
 
     if order.lower() == "asc":
-        query = query.order_by(order_column.asc())
+        query = query.order_by(order_column.asc())  # type:ignore
     else:
-        query = query.order_by(order_column.desc())
+        query = query.order_by(order_column.desc())  # type:ignore
 
     # 총 리뷰 개수 계산
     total_reviews_result = await review_repo.session.execute(select(func.count()).select_from(Review))

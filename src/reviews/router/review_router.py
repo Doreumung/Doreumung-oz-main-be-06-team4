@@ -246,7 +246,7 @@ async def get_review_handler(
 async def get_all_review_handler(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, comment_counts, like_counts)"),
+    order_by: str = Query("created_at", description="정렬 기준 (created_at, title, comment_count, like_count)"),
     order: str = Query("desc", description="정렬 방향 (asc or desc)"),
     review_repo: ReviewRepo = Depends(),
 ) -> Dict[str, Any]:

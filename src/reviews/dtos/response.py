@@ -31,6 +31,7 @@ class UploadImageResponse(BaseModel):
 
 class ReviewResponse(BaseModel):
     review_id: int
+    user_id: str
     nickname: str
     travel_route_id: int
     title: str
@@ -41,8 +42,6 @@ class ReviewResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     thumbnail: Optional[str]
-    images: Optional[List[str]]
-    uploaded_image: UploadImageResponse
 
     class Config:
         from_attributes = True
